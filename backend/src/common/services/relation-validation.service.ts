@@ -12,6 +12,7 @@ export class RelationValidationService {
     continentId?: string | null;
     countryId?: string | null;
     deityId?: string | null;
+    festivalCategoryId?: string | null;
     festivalId?: string | null;
     languageId?: string | null;
     mediaTypeId?: string | null;
@@ -22,6 +23,7 @@ export class RelationValidationService {
     await Promise.all([
       input.templeId ? this.ensureTemple(input.templeId) : undefined,
       input.categoryId ? this.ensureTempleCategory(input.categoryId) : undefined,
+      input.festivalCategoryId ? this.ensureFestivalCategory(input.festivalCategoryId) : undefined,
       input.continentId ? this.ensureContinent(input.continentId) : undefined,
       input.countryId ? this.ensureCountry(input.countryId) : undefined,
       input.deityId ? this.ensureDeity(input.deityId) : undefined,
@@ -112,6 +114,12 @@ export class RelationValidationService {
   private async ensureTempleCategory(id: string) {
     if (!(await this.prisma.templeCategory.findFirst({ where: { id } }))) {
       throw new NotFoundException("Temple category not found");
+    }
+  }
+
+  private async ensureFestivalCategory(id: string) {
+    if (!(await this.prisma.festivalCategory.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Festival category not found");
     }
   }
 

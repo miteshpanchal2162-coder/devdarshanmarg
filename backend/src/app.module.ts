@@ -9,6 +9,22 @@ import { AreasModule } from "./modules/areas/areas.module";
 import { CitiesModule } from "./modules/cities/cities.module";
 import { ContinentsModule } from "./modules/continents/continents.module";
 import { CountriesModule } from "./modules/countries/countries.module";
+import { FestivalAartisModule } from "./modules/festival-aartis/festival-aartis.module";
+import { FestivalBhajansModule } from "./modules/festival-bhajans/festival-bhajans.module";
+import { FestivalCategoriesModule } from "./modules/festival-categories/festival-categories.module";
+import { FestivalCategoryMapsModule } from "./modules/festival-category-maps/festival-category-maps.module";
+import { FestivalFastingRulesModule } from "./modules/festival-fasting-rules/festival-fasting-rules.module";
+import { FestivalFoodsModule } from "./modules/festival-foods/festival-foods.module";
+import { FestivalGalleryModule } from "./modules/festival-gallery/festival-gallery.module";
+import { FestivalKathasModule } from "./modules/festival-kathas/festival-kathas.module";
+import { FestivalMantrasModule } from "./modules/festival-mantras/festival-mantras.module";
+import { FestivalPujaVidhisModule } from "./modules/festival-puja-vidhis/festival-puja-vidhis.module";
+import { FestivalRitualsModule } from "./modules/festival-rituals/festival-rituals.module";
+import { FestivalSamagriModule } from "./modules/festival-samagri/festival-samagri.module";
+import { FestivalStatisticsModule } from "./modules/festival-statistics/festival-statistics.module";
+import { FestivalTranslationsModule } from "./modules/festival-translations/festival-translations.module";
+import { FestivalVideosModule } from "./modules/festival-videos/festival-videos.module";
+import { FestivalsModule } from "./modules/festivals/festivals.module";
 import { HealthModule } from "./modules/health/health.module";
 import { StatesModule } from "./modules/states/states.module";
 import { TempleAartisModule } from "./modules/temple-aartis/temple-aartis.module";
@@ -79,6 +95,22 @@ import { UsersModule } from "./modules/users/users.module";
     StatesModule,
     CitiesModule,
     AreasModule,
+    FestivalsModule,
+    FestivalTranslationsModule,
+    FestivalStatisticsModule,
+    FestivalCategoriesModule,
+    FestivalCategoryMapsModule,
+    FestivalRitualsModule,
+    FestivalPujaVidhisModule,
+    FestivalSamagriModule,
+    FestivalFastingRulesModule,
+    FestivalFoodsModule,
+    FestivalKathasModule,
+    FestivalMantrasModule,
+    FestivalAartisModule,
+    FestivalBhajansModule,
+    FestivalGalleryModule,
+    FestivalVideosModule,
     TempleTimingsModule,
     TempleTranslationsModule,
     TempleDeityMapsModule,

@@ -1427,6 +1427,8 @@ model Festival {
   galleries     FestivalGallery[]
   videos        FestivalVideo[]
   translations  FestivalTranslation[]
+  statistics    FestivalStatistics?
+  categoryMaps  FestivalCategoryMap[]
   specialEvents TempleSpecialEvent[]
 
   @@index([slug])
@@ -1434,6 +1436,69 @@ model Festival {
   @@index([isFeatured])
   @@index([isPopular])
   @@map("festivals")
+}
+
+model FestivalStatistics {
+  id               String    @id @default(uuid()) @db.Uuid
+  festivalId       String    @unique @map("festival_id") @db.Uuid
+  totalViews       BigInt    @default(0) @map("total_views")
+  totalFavorites   BigInt    @default(0) @map("total_favorites")
+  totalShares      BigInt    @default(0) @map("total_shares")
+  averageRating    Decimal?  @map("average_rating") @db.Decimal(3, 2)
+  ratingCount      BigInt    @default(0) @map("rating_count")
+  lastCalculatedAt DateTime? @map("last_calculated_at")
+  status           Status    @default(ACTIVE)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  festival Festival @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+
+  @@index([festivalId])
+  @@map("festival_statistics")
+}
+
+model FestivalCategory {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String?   @db.VarChar(150)
+  displayName    String?   @map("display_name") @db.VarChar(200)
+  slug           String    @unique @db.VarChar(255)
+  description    String?   @db.Text
+  icon           String?   @db.VarChar(255)
+  image          String?   @db.VarChar(500)
+  alternateNames String?   @map("alternate_names") @db.Text
+  searchKeywords String?   @map("search_keywords") @db.Text
+  seoTitle       String?   @map("seo_title") @db.VarChar(255)
+  seoDescription String?   @map("seo_description") @db.Text
+  isFeatured     Boolean   @default(false) @map("is_featured")
+  status         Status    @default(ACTIVE)
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  festivals FestivalCategoryMap[]
+
+  @@index([name])
+  @@map("festival_categories")
+}
+
+model FestivalCategoryMap {
+  id         String   @id @default(uuid()) @db.Uuid
+  festivalId String   @map("festival_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  festival Festival         @relation(fields: [festivalId], references: [id], onDelete: Cascade)
+  category FestivalCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([festivalId, categoryId])
+  @@index([festivalId])
+  @@index([categoryId])
+  @@map("festival_category_map")
 }
 
 model FestivalDate {

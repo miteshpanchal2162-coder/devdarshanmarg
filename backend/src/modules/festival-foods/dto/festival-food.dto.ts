@@ -1,0 +1,79 @@
+import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
+import { Status } from "@prisma/client";
+import { Type } from "class-transformer";
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import { BaseQueryDto } from "../../../common/dto/base-query.dto";
+
+export class FestivalFoodQueryDto extends BaseQueryDto {}
+
+export class CreateFestivalFoodDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  foodCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  displayName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  foodType?: string;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isVegetarian?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  recipe?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  image?: string;
+
+  @ApiPropertyOptional({ enum: Status, default: Status.ACTIVE })
+  @IsEnum(Status)
+  @IsOptional()
+  status?: Status;
+
+  @ApiPropertyOptional()
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  @Type(() => Number)
+  sortOrder?: number;
+}
+
+export class UpdateFestivalFoodDto extends PartialType(CreateFestivalFoodDto) {}
+
+export class UpdateFestivalFoodStatusDto {
+  @ApiProperty({ enum: Status })
+  @IsEnum(Status)
+  status: Status;
+}
+
+export class FestivalFoodResponseDto extends CreateFestivalFoodDto {
+  @ApiProperty()
+  id: string;
+}
