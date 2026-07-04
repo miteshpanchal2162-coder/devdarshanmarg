@@ -1,0 +1,191 @@
+/* DevDarshanMarg Admin — brand tokens */
+
+:root {
+  --saffron: oklch(0.68 0.19 45);
+  --saffron-soft: oklch(0.86 0.09 55);
+  --saffron-muted: oklch(0.95 0.035 60);
+  --gold: oklch(0.78 0.12 85);
+  --gold-soft: oklch(0.9 0.07 90);
+  --cream: oklch(0.99 0.008 85);
+  --cream-strong: oklch(0.965 0.02 85);
+  --warm-white: oklch(0.995 0.003 85);
+  --charcoal: oklch(0.25 0.02 50);
+  --charcoal-soft: oklch(0.34 0.02 50);
+  --maroon: oklch(0.38 0.14 15);
+  --deep-maroon: oklch(0.22 0.08 15);
+  --success: oklch(0.62 0.16 145);
+  --success-soft: oklch(0.95 0.04 145);
+  --warning: oklch(0.76 0.15 75);
+  --warning-soft: oklch(0.96 0.06 82);
+  --danger: oklch(0.58 0.22 25);
+  --danger-soft: oklch(0.95 0.04 25);
+  --info: oklch(0.58 0.16 245);
+  --info-soft: oklch(0.95 0.035 245);
+  --font-display-size: clamp(2.5rem, 7vw, 4.75rem);
+  --font-heading-size: clamp(1.75rem, 4vw, 2.75rem);
+  --font-subheading-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  --font-body-size: 0.9375rem;
+  --font-caption-size: 0.8125rem;
+  --font-small-size: 0.75rem;
+  --font-display-line-height: 0.95;
+  --font-heading-line-height: 1.05;
+  --font-subheading-line-height: 1.2;
+  --font-body-line-height: 1.6;
+  --font-caption-line-height: 1.45;
+  --font-small-line-height: 1.4;
+  --font-display-tracking: -0.055em;
+  --font-heading-tracking: -0.04em;
+  --font-subheading-tracking: -0.025em;
+  --space-page-x: clamp(1rem, 3vw, 2rem);
+  --space-section-y: clamp(1.5rem, 4vw, 3rem);
+  --space-0: 0;
+  --space-px: 1px;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+  --space-3xl: 3rem;
+  --space-4xl: 4rem;
+  --radius-xs: 0.35rem;
+  --radius-sm-token: 0.5rem;
+  --radius-md-token: 0.7rem;
+  --radius-lg-token: 0.875rem;
+  --radius-xl-token: 1.125rem;
+  --radius-2xl-token: 1.5rem;
+  --radius-full-token: 9999px;
+  --shadow-admin-xs: 0 1px 2px oklch(0.25 0.02 50 / 5%);
+  --shadow-admin-sm: 0 4px 12px oklch(0.25 0.02 50 / 6%);
+  --shadow-admin-md: 0 8px 28px oklch(0.25 0.02 50 / 8%);
+  --shadow-admin-lg: 0 18px 44px oklch(0.25 0.02 50 / 10%);
+  --shadow-admin-premium:
+    0 1px 2px oklch(0.25 0.02 50 / 4%),
+    0 8px 24px oklch(0.68 0.19 45 / 8%),
+    0 24px 48px oklch(0.25 0.02 50 / 4%);
+  --blur-glass: 20px;
+  --blur-backdrop: 28px;
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 360ms;
+  --duration-slower: 520ms;
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-premium:
+    background-color var(--duration-normal) var(--ease-premium),
+    border-color var(--duration-normal) var(--ease-premium),
+    color var(--duration-normal) var(--ease-premium),
+    box-shadow var(--duration-normal) var(--ease-premium),
+    transform var(--duration-normal) var(--ease-premium);
+}
+
+.dark {
+  --cream: oklch(0.2 0.025 20);
+  --charcoal: oklch(0.93 0.01 85);
+  --shadow-admin-xs: 0 1px 2px oklch(0 0 0 / 22%);
+  --shadow-admin-sm: 0 4px 12px oklch(0 0 0 / 24%);
+  --shadow-admin-md: 0 8px 28px oklch(0 0 0 / 28%);
+  --shadow-admin-lg: 0 18px 44px oklch(0 0 0 / 32%);
+  --shadow-admin-premium:
+    0 1px 2px oklch(0 0 0 / 20%),
+    0 8px 24px oklch(0.68 0.19 45 / 12%),
+    0 24px 48px oklch(0 0 0 / 25%);
+}
+
+.gradient-saffron-gold {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--saffron) 88%, white) 0%,
+    color-mix(in oklch, var(--gold) 75%, white) 100%
+  );
+}
+
+.gradient-maroon-saffron {
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--maroon) 90%, black) 0%,
+    color-mix(in oklch, var(--saffron) 85%, black) 100%
+  );
+}
+
+.gradient-cream-saffron {
+  background:
+    radial-gradient(circle at top left, oklch(0.68 0.19 45 / 10%), transparent 32rem),
+    linear-gradient(135deg, var(--cream) 0%, oklch(1 0 0) 55%, oklch(0.98 0.02 85) 100%);
+}
+
+.gradient-glass {
+  background:
+    linear-gradient(135deg, oklch(1 0 0 / 70%), oklch(1 0 0 / 40%)),
+    radial-gradient(circle at top right, oklch(0.78 0.12 85 / 14%), transparent 24rem);
+}
+
+.dark .gradient-glass {
+  background:
+    linear-gradient(135deg, oklch(0.22 0.03 20 / 82%), oklch(0.18 0.025 20 / 72%)),
+    radial-gradient(circle at top right, oklch(0.68 0.19 45 / 12%), transparent 24rem);
+}
+
+.shadow-premium {
+  box-shadow: var(--shadow-admin-premium);
+}
+
+.dark .shadow-premium {
+  box-shadow: var(--shadow-admin-premium);
+}
+
+.shadow-soft {
+  box-shadow: var(--shadow-admin-md);
+}
+
+.glass-panel {
+  border: 1px solid oklch(1 0 0 / 42%);
+  background: oklch(1 0 0 / 68%);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+
+.dark .glass-panel {
+  border-color: oklch(1 0 0 / 10%);
+  background: oklch(0.2 0.025 20 / 72%);
+}
+
+.text-display {
+  font-size: var(--font-display-size);
+  letter-spacing: var(--font-display-tracking);
+  line-height: var(--font-display-line-height);
+}
+
+.text-heading {
+  font-size: var(--font-heading-size);
+  letter-spacing: var(--font-heading-tracking);
+  line-height: var(--font-heading-line-height);
+}
+
+.text-subheading {
+  font-size: var(--font-subheading-size);
+  letter-spacing: var(--font-subheading-tracking);
+  line-height: var(--font-subheading-line-height);
+}
+
+.text-caption {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line-height);
+}
+
+.text-small {
+  font-size: var(--font-small-size);
+  line-height: var(--font-small-line-height);
+}
+
+.font-indic {
+  font-family: var(--font-devanagari), var(--font-gujarati), var(--font-sans), sans-serif;
+  font-feature-settings: "kern";
+  line-height: 1.65;
+}
+
+.font-gujarati {
+  font-family: var(--font-gujarati), var(--font-sans), sans-serif;
+}
+
+.font-devanagari {
+  font-family: var(--font-devanagari), var(--font-sans), sans-serif;
+}
