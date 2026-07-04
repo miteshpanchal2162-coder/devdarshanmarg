@@ -255,6 +255,10 @@ model SupportedLanguage {
   festivalMantras         FestivalMantra[]
   festivalAartis          FestivalAarti[]
   festivalBhajans         FestivalBhajan[]
+  deityMantras            DeityMantra[]
+  deityAartis             DeityAarti[]
+  deityStotras            DeityStotra[]
+  deityStories            DeityStory[]
   festivalGalleries       FestivalGallery[]
   festivalVideos          FestivalVideo[]
   contentItemTranslations ContentItemTranslation[]
@@ -334,14 +338,82 @@ model Deity {
   symbols           DeitySymbol[]
   attributes        DeityAttribute[]
   blessings         DeityBlessing[]
+  mantras           DeityMantra[]
+  aartis            DeityAarti[]
+  stotras           DeityStotra[]
+  stories           DeityStory[]
   associations      DeityAssociation[]
   statistics        DeityStatistics?
+  translations      DeityTranslation[]
+  categoryMaps      DeityCategoryMap[]
   externalLinks     DeityExternalLink[]
   changeHistory     DeityChangeHistory[]
 
   @@index([deityTypeId])
   @@index([name])
   @@map("deities")
+}
+
+model DeityTranslation {
+  id              String   @id @default(uuid()) @db.Uuid
+  deityId         String   @map("deity_id") @db.Uuid
+  language        Language
+  name            String   @db.VarChar(300)
+  description     String?  @db.Text
+  metaTitle       String?  @map("meta_title") @db.VarChar(200)
+  metaDescription String?  @map("meta_description") @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  deity Deity @relation(fields: [deityId], references: [id], onDelete: Cascade)
+
+  @@unique([deityId, language])
+  @@index([language])
+  @@map("deity_translations")
+}
+
+model DeityCategory {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String?   @db.VarChar(150)
+  displayName    String?   @map("display_name") @db.VarChar(200)
+  slug           String    @unique @db.VarChar(255)
+  description    String?   @db.Text
+  icon           String?   @db.VarChar(255)
+  image          String?   @db.VarChar(500)
+  alternateNames String?   @map("alternate_names") @db.Text
+  searchKeywords String?   @map("search_keywords") @db.Text
+  seoTitle       String?   @map("seo_title") @db.VarChar(255)
+  seoDescription String?   @map("seo_description") @db.Text
+  isFeatured     Boolean   @default(false) @map("is_featured")
+  status         Status    @default(ACTIVE)
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  deities DeityCategoryMap[]
+
+  @@index([name])
+  @@map("deity_categories")
+}
+
+model DeityCategoryMap {
+  id         String   @id @default(uuid()) @db.Uuid
+  deityId    String   @map("deity_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  deity    Deity         @relation(fields: [deityId], references: [id], onDelete: Cascade)
+  category DeityCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([deityId, categoryId])
+  @@index([deityId])
+  @@index([categoryId])
+  @@map("deity_category_map")
 }
 
 model TempleCategory {
@@ -2896,6 +2968,126 @@ model DeityBlessing {
   @@map("deity_blessings")
 }
 
+model DeityMantra {
+  id              String    @id @default(uuid()) @db.Uuid
+  deityId         String    @map("deity_id") @db.Uuid
+  languageId      String?   @map("language_id") @db.Uuid
+  mantraCode      String?   @map("mantra_code") @db.VarChar(50)
+  name            String?   @db.VarChar(200)
+  displayName     String?   @map("display_name") @db.VarChar(255)
+  mantra          String?   @db.Text
+  meaning         String?   @db.Text
+  recitationCount Int?      @map("recitation_count")
+  audioUrl        String?   @map("audio_url") @db.Text
+  status          Status    @default(ACTIVE)
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  deity    Deity              @relation(fields: [deityId], references: [id], onDelete: Cascade)
+  language SupportedLanguage? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+
+  @@unique([deityId, mantraCode])
+  @@index([deityId])
+  @@index([languageId])
+  @@index([name])
+  @@map("deity_mantras")
+}
+
+model DeityAarti {
+  id              String    @id @default(uuid()) @db.Uuid
+  deityId         String    @map("deity_id") @db.Uuid
+  languageId      String?   @map("language_id") @db.Uuid
+  aartiCode       String?   @map("aarti_code") @db.VarChar(50)
+  name            String?   @db.VarChar(200)
+  displayName     String?   @map("display_name") @db.VarChar(255)
+  lyrics          String?   @db.Text
+  aartiTime       DateTime? @map("aarti_time") @db.Time(0)
+  durationMinutes Int?      @map("duration_minutes")
+  audioUrl        String?   @map("audio_url") @db.Text
+  videoUrl        String?   @map("video_url") @db.Text
+  status          Status    @default(ACTIVE)
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  deity    Deity              @relation(fields: [deityId], references: [id], onDelete: Cascade)
+  language SupportedLanguage? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+
+  @@unique([deityId, aartiCode])
+  @@index([deityId])
+  @@index([languageId])
+  @@index([name])
+  @@map("deity_aartis")
+}
+
+model DeityStotra {
+  id          String    @id @default(uuid()) @db.Uuid
+  deityId     String    @map("deity_id") @db.Uuid
+  languageId  String?   @map("language_id") @db.Uuid
+  stotraCode  String?   @map("stotra_code") @db.VarChar(50)
+  name        String?   @db.VarChar(200)
+  displayName String?   @map("display_name") @db.VarChar(255)
+  content     String?   @db.Text
+  composer    String?   @db.VarChar(150)
+  audioUrl    String?   @map("audio_url") @db.Text
+  videoUrl    String?   @map("video_url") @db.Text
+  status      Status    @default(ACTIVE)
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  deity    Deity              @relation(fields: [deityId], references: [id], onDelete: Cascade)
+  language SupportedLanguage? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+
+  @@unique([deityId, stotraCode])
+  @@index([deityId])
+  @@index([languageId])
+  @@index([name])
+  @@map("deity_stotras")
+}
+
+model DeityStory {
+  id              String    @id @default(uuid()) @db.Uuid
+  deityId         String    @map("deity_id") @db.Uuid
+  languageId      String?   @map("language_id") @db.Uuid
+  storyCode       String?   @map("story_code") @db.VarChar(50)
+  name            String?   @db.VarChar(200)
+  displayName     String?   @map("display_name") @db.VarChar(255)
+  description     String?   @db.Text
+  content         String?   @db.Text
+  narrator        String?   @db.VarChar(150)
+  durationMinutes Int?      @map("duration_minutes")
+  audioUrl        String?   @map("audio_url") @db.Text
+  videoUrl        String?   @map("video_url") @db.Text
+  image           String?   @db.VarChar(500)
+  status          Status    @default(ACTIVE)
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  deity    Deity              @relation(fields: [deityId], references: [id], onDelete: Cascade)
+  language SupportedLanguage? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+
+  @@unique([deityId, storyCode])
+  @@index([deityId])
+  @@index([languageId])
+  @@index([name])
+  @@map("deity_stories")
+}
+
 model DeityAssociation {
   id              String    @id @default(uuid()) @db.Uuid
   deityId         String    @map("deity_id") @db.Uuid
@@ -3010,6 +3202,8 @@ model Panchang {
 
   country       Country?                @relation(fields: [countryId], references: [id], onDelete: SetNull)
   state         State?                  @relation(fields: [stateId], references: [id], onDelete: SetNull)
+  translations  PanchangTranslation[]
+  categoryMaps  PanchangCategoryMap[]
   regions       PanchangRegion[]
   dates         PanchangDate[]
   statistics    PanchangStatistics?
@@ -3024,6 +3218,68 @@ model Panchang {
   @@index([sortOrder])
   @@index([deletedAt])
   @@map("panchangs")
+}
+
+model PanchangTranslation {
+  id              String   @id @default(uuid()) @db.Uuid
+  panchangId      String   @map("panchang_id") @db.Uuid
+  language        Language
+  name            String   @db.VarChar(300)
+  description     String?  @db.Text
+  metaTitle       String?  @map("meta_title") @db.VarChar(200)
+  metaDescription String?  @map("meta_description") @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  panchang Panchang @relation(fields: [panchangId], references: [id], onDelete: Cascade)
+
+  @@unique([panchangId, language])
+  @@index([language])
+  @@map("panchang_translations")
+}
+
+model PanchangCategory {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String?   @db.VarChar(150)
+  displayName    String?   @map("display_name") @db.VarChar(200)
+  slug           String    @unique @db.VarChar(255)
+  description    String?   @db.Text
+  icon           String?   @db.VarChar(255)
+  image          String?   @db.VarChar(500)
+  alternateNames String?   @map("alternate_names") @db.Text
+  searchKeywords String?   @map("search_keywords") @db.Text
+  seoTitle       String?   @map("seo_title") @db.VarChar(255)
+  seoDescription String?   @map("seo_description") @db.Text
+  isFeatured     Boolean   @default(false) @map("is_featured")
+  status         Status    @default(ACTIVE)
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  panchangs PanchangCategoryMap[]
+
+  @@index([name])
+  @@map("panchang_categories")
+}
+
+model PanchangCategoryMap {
+  id         String   @id @default(uuid()) @db.Uuid
+  panchangId String   @map("panchang_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  panchang Panchang         @relation(fields: [panchangId], references: [id], onDelete: Cascade)
+  category PanchangCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([panchangId, categoryId])
+  @@index([panchangId])
+  @@index([categoryId])
+  @@map("panchang_category_map")
 }
 
 model PanchangRegion {

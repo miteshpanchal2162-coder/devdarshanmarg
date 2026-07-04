@@ -6,9 +6,35 @@ import { envValidationSchema } from "./config/env.validation";
 import { PrismaModule } from "./database/prisma/prisma.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AreasModule } from "./modules/areas/areas.module";
+import { AbhijitMuhuratModule } from "./modules/abhijit-muhurat/abhijit-muhurat.module";
+import { AmavasyaModule } from "./modules/amavasya/amavasya.module";
+import { ChoghadiyasModule } from "./modules/choghadiyas/choghadiyas.module";
+import { EkadashiModule } from "./modules/ekadashi/ekadashi.module";
+import { GulikaKaalModule } from "./modules/gulika-kaal/gulika-kaal.module";
 import { CitiesModule } from "./modules/cities/cities.module";
 import { ContinentsModule } from "./modules/continents/continents.module";
 import { CountriesModule } from "./modules/countries/countries.module";
+import { DeitiesModule } from "./modules/deities/deities.module";
+import { DeityAartisModule } from "./modules/deity-aartis/deity-aartis.module";
+import { DeityAttributesModule } from "./modules/deity-attributes/deity-attributes.module";
+import { DeityAvatarsModule } from "./modules/deity-avatars/deity-avatars.module";
+import { DeityBlessingsModule } from "./modules/deity-blessings/deity-blessings.module";
+import { DeityCategoriesModule } from "./modules/deity-categories/deity-categories.module";
+import { DeityCategoryMapsModule } from "./modules/deity-category-maps/deity-category-maps.module";
+import { DeityChangeHistoryModule } from "./modules/deity-change-history/deity-change-history.module";
+import { DeityExternalLinksModule } from "./modules/deity-external-links/deity-external-links.module";
+import { DeityFestivalsModule } from "./modules/deity-festivals/deity-festivals.module";
+import { DeityMantrasModule } from "./modules/deity-mantras/deity-mantras.module";
+import { DeityProfilesModule } from "./modules/deity-profiles/deity-profiles.module";
+import { DeityRelationsModule } from "./modules/deity-relations/deity-relations.module";
+import { DeityStatisticsModule } from "./modules/deity-statistics/deity-statistics.module";
+import { DeityStoriesModule } from "./modules/deity-stories/deity-stories.module";
+import { DeityStotrasModule } from "./modules/deity-stotras/deity-stotras.module";
+import { DeitySymbolsModule } from "./modules/deity-symbols/deity-symbols.module";
+import { DeityTempleMapsModule } from "./modules/deity-temple-maps/deity-temple-maps.module";
+import { DeityTranslationsModule } from "./modules/deity-translations/deity-translations.module";
+import { DeityTypesModule } from "./modules/deity-types/deity-types.module";
+import { DeityAssociationsModule } from "./modules/deity-associations/deity-associations.module";
 import { FestivalAartisModule } from "./modules/festival-aartis/festival-aartis.module";
 import { FestivalBhajansModule } from "./modules/festival-bhajans/festival-bhajans.module";
 import { FestivalCategoriesModule } from "./modules/festival-categories/festival-categories.module";
@@ -26,6 +52,35 @@ import { FestivalTranslationsModule } from "./modules/festival-translations/fest
 import { FestivalVideosModule } from "./modules/festival-videos/festival-videos.module";
 import { FestivalsModule } from "./modules/festivals/festivals.module";
 import { HealthModule } from "./modules/health/health.module";
+import { KaranasModule } from "./modules/karanas/karanas.module";
+import { MuhuratsModule } from "./modules/muhurats/muhurats.module";
+import { NakshatrasModule } from "./modules/nakshatras/nakshatras.module";
+import { PlanetsModule } from "./modules/planets/planets.module";
+import { PradoshModule } from "./modules/pradosh/pradosh.module";
+import { PurnimaModule } from "./modules/purnima/purnima.module";
+import { RashisModule } from "./modules/rashis/rashis.module";
+import { SankashtiModule } from "./modules/sankashti/sankashti.module";
+import { VratBenefitsModule } from "./modules/vrat-benefits/vrat-benefits.module";
+import { VratDatesModule } from "./modules/vrat-dates/vrat-dates.module";
+import { VratFoodRulesModule } from "./modules/vrat-food-rules/vrat-food-rules.module";
+import { VratRulesModule } from "./modules/vrat-rules/vrat-rules.module";
+import { VratsModule } from "./modules/vrats/vrats.module";
+import { PanchangCategoriesModule } from "./modules/panchang-categories/panchang-categories.module";
+import { PanchangCategoryMapsModule } from "./modules/panchang-category-maps/panchang-category-maps.module";
+import { PanchangChangeHistoryModule } from "./modules/panchang-change-history/panchang-change-history.module";
+import { PanchangDatesModule } from "./modules/panchang-dates/panchang-dates.module";
+import { PanchangDayElementsModule } from "./modules/panchang-day-elements/panchang-day-elements.module";
+import { PanchangExternalLinksModule } from "./modules/panchang-external-links/panchang-external-links.module";
+import { PanchangPlanetPositionsModule } from "./modules/panchang-planet-positions/panchang-planet-positions.module";
+import { PanchangRashiTransitsModule } from "./modules/panchang-rashi-transits/panchang-rashi-transits.module";
+import { PanchangRegionsModule } from "./modules/panchang-regions/panchang-regions.module";
+import { PanchangSourcesModule } from "./modules/panchang-sources/panchang-sources.module";
+import { PanchangStatisticsModule } from "./modules/panchang-statistics/panchang-statistics.module";
+import { PanchangSunTimesModule } from "./modules/panchang-sun-times/panchang-sun-times.module";
+import { PanchangTranslationsModule } from "./modules/panchang-translations/panchang-translations.module";
+import { PanchangsModule } from "./modules/panchangs/panchangs.module";
+import { RahuKaalModule } from "./modules/rahu-kaal/rahu-kaal.module";
+import { YamagandaKaalModule } from "./modules/yamaganda-kaal/yamaganda-kaal.module";
 import { StatesModule } from "./modules/states/states.module";
 import { TempleAartisModule } from "./modules/temple-aartis/temple-aartis.module";
 import { TempleAccessibilityModule } from "./modules/temple-accessibility/temple-accessibility.module";
@@ -58,6 +113,8 @@ import { TempleStatisticsModule } from "./modules/temple-statistics/temple-stati
 import { TempleTimingsModule } from "./modules/temple-timings/temple-timings.module";
 import { TempleTranslationsModule } from "./modules/temple-translations/temple-translations.module";
 import { TemplesModule } from "./modules/temples/temples.module";
+import { TithisModule } from "./modules/tithis/tithis.module";
+import { YogasModule } from "./modules/yogas/yogas.module";
 import { UsersModule } from "./modules/users/users.module";
 
 @Module({
@@ -95,6 +152,27 @@ import { UsersModule } from "./modules/users/users.module";
     StatesModule,
     CitiesModule,
     AreasModule,
+    DeitiesModule,
+    DeityTypesModule,
+    DeityTranslationsModule,
+    DeityStatisticsModule,
+    DeityProfilesModule,
+    DeityCategoriesModule,
+    DeityCategoryMapsModule,
+    DeityAvatarsModule,
+    DeitySymbolsModule,
+    DeityAttributesModule,
+    DeityAssociationsModule,
+    DeityRelationsModule,
+    DeityBlessingsModule,
+    DeityMantrasModule,
+    DeityAartisModule,
+    DeityStotrasModule,
+    DeityStoriesModule,
+    DeityFestivalsModule,
+    DeityTempleMapsModule,
+    DeityExternalLinksModule,
+    DeityChangeHistoryModule,
     FestivalsModule,
     FestivalTranslationsModule,
     FestivalStatisticsModule,
@@ -111,6 +189,42 @@ import { UsersModule } from "./modules/users/users.module";
     FestivalBhajansModule,
     FestivalGalleryModule,
     FestivalVideosModule,
+    PanchangsModule,
+    PanchangTranslationsModule,
+    PanchangStatisticsModule,
+    PanchangCategoriesModule,
+    PanchangCategoryMapsModule,
+    PanchangDatesModule,
+    PanchangDayElementsModule,
+    PanchangSunTimesModule,
+    ChoghadiyasModule,
+    RahuKaalModule,
+    GulikaKaalModule,
+    YamagandaKaalModule,
+    AbhijitMuhuratModule,
+    EkadashiModule,
+    PurnimaModule,
+    AmavasyaModule,
+    PradoshModule,
+    SankashtiModule,
+    PanchangPlanetPositionsModule,
+    PanchangRashiTransitsModule,
+    PanchangRegionsModule,
+    PanchangSourcesModule,
+    PanchangExternalLinksModule,
+    PanchangChangeHistoryModule,
+    TithisModule,
+    NakshatrasModule,
+    YogasModule,
+    KaranasModule,
+    MuhuratsModule,
+    PlanetsModule,
+    RashisModule,
+    VratsModule,
+    VratRulesModule,
+    VratBenefitsModule,
+    VratFoodRulesModule,
+    VratDatesModule,
     TempleTimingsModule,
     TempleTranslationsModule,
     TempleDeityMapsModule,

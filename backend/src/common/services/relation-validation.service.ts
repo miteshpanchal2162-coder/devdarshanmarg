@@ -11,14 +11,27 @@ export class RelationValidationService {
     categoryId?: string | null;
     continentId?: string | null;
     countryId?: string | null;
+    deityCategoryId?: string | null;
     deityId?: string | null;
+    deityTypeId?: string | null;
     festivalCategoryId?: string | null;
     festivalId?: string | null;
+    karanaId?: string | null;
     languageId?: string | null;
     mediaTypeId?: string | null;
+    nakshatraId?: string | null;
+    panchangCategoryId?: string | null;
+    panchangDateId?: string | null;
+    panchangId?: string | null;
+    planetId?: string | null;
+    rashiId?: string | null;
+    relatedDeityId?: string | null;
     stateId?: string | null;
     templeId?: string | null;
+    tithiId?: string | null;
     userId?: string | null;
+    vratId?: string | null;
+    yogaId?: string | null;
   }) {
     await Promise.all([
       input.templeId ? this.ensureTemple(input.templeId) : undefined,
@@ -27,14 +40,37 @@ export class RelationValidationService {
       input.continentId ? this.ensureContinent(input.continentId) : undefined,
       input.countryId ? this.ensureCountry(input.countryId) : undefined,
       input.deityId ? this.ensureDeity(input.deityId) : undefined,
+      input.relatedDeityId ? this.ensureDeity(input.relatedDeityId) : undefined,
+      input.deityTypeId ? this.ensureDeityType(input.deityTypeId) : undefined,
+      input.deityCategoryId ? this.ensureDeityCategory(input.deityCategoryId) : undefined,
       input.stateId ? this.ensureState(input.stateId) : undefined,
       input.cityId ? this.ensureCity(input.cityId) : undefined,
       input.areaId ? this.ensureArea(input.areaId) : undefined,
       input.festivalId ? this.ensureFestival(input.festivalId) : undefined,
+      input.karanaId ? this.ensureKarana(input.karanaId) : undefined,
+      input.nakshatraId ? this.ensureNakshatra(input.nakshatraId) : undefined,
+      input.panchangId ? this.ensurePanchang(input.panchangId) : undefined,
+      input.panchangCategoryId ? this.ensurePanchangCategory(input.panchangCategoryId) : undefined,
+      input.planetId ? this.ensurePlanet(input.planetId) : undefined,
+      input.rashiId ? this.ensureRashi(input.rashiId) : undefined,
+      input.tithiId ? this.ensureTithi(input.tithiId) : undefined,
+      input.yogaId ? this.ensureYoga(input.yogaId) : undefined,
       input.languageId ? this.ensureLanguage(input.languageId) : undefined,
       input.mediaTypeId ? this.ensureMediaType(input.mediaTypeId) : undefined,
       input.userId ? this.ensureUser(input.userId) : undefined,
+      input.vratId ? this.ensureVrat(input.vratId) : undefined,
+      input.panchangDateId ? this.ensurePanchangDate(input.panchangDateId) : undefined,
     ]);
+  }
+
+  async validatePanchangDateHierarchy(panchangId: string, panchangDateId: string) {
+    await this.validateForeignKeys({ panchangId });
+    const panchangDate = await this.prisma.panchangDate.findFirst({
+      where: { id: panchangDateId, panchangId },
+    });
+    if (!panchangDate) {
+      throw new NotFoundException("Panchang date not found");
+    }
   }
 
   async validateStateHierarchy(countryId: string, stateId: string) {
@@ -111,6 +147,18 @@ export class RelationValidationService {
     }
   }
 
+  private async ensureDeityType(id: string) {
+    if (!(await this.prisma.deityType.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Deity type not found");
+    }
+  }
+
+  private async ensureDeityCategory(id: string) {
+    if (!(await this.prisma.deityCategory.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Deity category not found");
+    }
+  }
+
   private async ensureTempleCategory(id: string) {
     if (!(await this.prisma.templeCategory.findFirst({ where: { id } }))) {
       throw new NotFoundException("Temple category not found");
@@ -147,6 +195,54 @@ export class RelationValidationService {
     }
   }
 
+  private async ensurePanchang(id: string) {
+    if (!(await this.prisma.panchang.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Panchang not found");
+    }
+  }
+
+  private async ensurePanchangCategory(id: string) {
+    if (!(await this.prisma.panchangCategory.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Panchang category not found");
+    }
+  }
+
+  private async ensureTithi(id: string) {
+    if (!(await this.prisma.tithi.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Tithi not found");
+    }
+  }
+
+  private async ensureNakshatra(id: string) {
+    if (!(await this.prisma.nakshatra.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Nakshatra not found");
+    }
+  }
+
+  private async ensureYoga(id: string) {
+    if (!(await this.prisma.yoga.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Yoga not found");
+    }
+  }
+
+  private async ensureKarana(id: string) {
+    if (!(await this.prisma.karana.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Karana not found");
+    }
+  }
+
+  private async ensurePlanet(id: string) {
+    if (!(await this.prisma.planet.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Planet not found");
+    }
+  }
+
+  private async ensureRashi(id: string) {
+    if (!(await this.prisma.rashi.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Rashi not found");
+    }
+  }
+
   private async ensureLanguage(id: string) {
     if (!(await this.prisma.supportedLanguage.findFirst({ where: { deletedAt: null, id } }))) {
       throw new NotFoundException("Language not found");
@@ -162,6 +258,18 @@ export class RelationValidationService {
   private async ensureUser(id: string) {
     if (!(await this.prisma.user.findFirst({ where: { deletedAt: null, id } }))) {
       throw new NotFoundException("User not found");
+    }
+  }
+
+  private async ensureVrat(id: string) {
+    if (!(await this.prisma.vrat.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Vrat not found");
+    }
+  }
+
+  private async ensurePanchangDate(id: string) {
+    if (!(await this.prisma.panchangDate.findFirst({ where: { id } }))) {
+      throw new NotFoundException("Panchang date not found");
     }
   }
 }

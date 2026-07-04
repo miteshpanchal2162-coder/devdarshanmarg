@@ -13,6 +13,7 @@ import {
 type CrudDelegate<T> = {
   create(args: { data: any }): Promise<T>;
   count(args?: { where?: Record<string, unknown> }): Promise<number>;
+  delete?(args: { where: { id: string } }): Promise<T>;
   findFirst(args: { where: Record<string, unknown> }): Promise<T | null>;
   findMany(args: {
     orderBy?: Record<string, unknown>;
@@ -24,6 +25,8 @@ type CrudDelegate<T> = {
 };
 
 export abstract class BaseCrudService<T> {
+  private softDeleteFilterSupported: boolean | null = null;
+
   protected constructor(
     protected readonly delegate: CrudDelegate<T>,
     protected readonly searchableFields: string[] = [],
@@ -57,10 +60,18 @@ export abstract class BaseCrudService<T> {
         });
       }
 
-      return await this.delegate.update({
-        where: { id },
-        data: { status: "ARCHIVED" },
-      });
+      if (this.recordHasStatus(record)) {
+        return await this.delegate.update({
+          where: { id },
+          data: { status: "ARCHIVED" },
+        });
+      }
+
+      if (!this.delegate.delete) {
+        throw new NotFoundException("Record not found");
+      }
+
+      return await this.delegate.delete({ where: { id } });
     } catch (error) {
       handlePrismaError(error);
     }
@@ -68,34 +79,34 @@ export abstract class BaseCrudService<T> {
 
   async restore(id: string): Promise<T> {
     try {
-      return await this.delegate.update({
-        where: { id },
-        data: { deletedAt: null, status: "ACTIVE" },
-      });
+      const record = await this.findRecordById(id, false);
+      const data: Record<string, unknown> = {};
+
+      if (this.hasDeletedAt(record)) {
+        data.deletedAt = null;
+      }
+      if (this.recordHasStatus(record)) {
+        data.status = "ACTIVE";
+      }
+
+      return await this.delegate.update({ where: { id }, data });
     } catch (error) {
       handlePrismaError(error);
     }
   }
 
   async findOne(id: string): Promise<T> {
-    const record = await this.delegate.findFirst({
-      where: { id, deletedAt: null },
-    });
-
-    if (!record) {
-      throw new NotFoundException("Record not found");
-    }
-
-    return record;
+    return this.findRecordById(id);
   }
 
   async findMany(query: BaseQueryDto): Promise<PaginatedResponse<T>> {
     const { page, limit, skip, take } = getPagination(query.page, query.limit);
+    const supportsSoftDelete = await this.supportsSoftDeleteFilter();
     const where = this.cleanWhere({
       ...buildSearchFilter(query.search, this.searchableFields),
       ...buildStatusFilter(query.status),
       ...buildFieldFilters(this.filterAllowedFields(query.filters)),
-      deletedAt: null,
+      ...(supportsSoftDelete ? { deletedAt: null } : {}),
     });
     const [items, total] = await Promise.all([
       this.delegate.findMany({
@@ -113,8 +124,45 @@ export abstract class BaseCrudService<T> {
     };
   }
 
+  private async findRecordById(id: string, excludeInactive = true): Promise<T> {
+    const record = await this.delegate.findFirst({ where: { id } });
+
+    if (!record) {
+      throw new NotFoundException("Record not found");
+    }
+
+    if (
+      excludeInactive &&
+      this.hasDeletedAt(record) &&
+      (record as Record<string, unknown>).deletedAt !== null
+    ) {
+      throw new NotFoundException("Record not found");
+    }
+
+    return record;
+  }
+
+  private async supportsSoftDeleteFilter(): Promise<boolean> {
+    if (this.softDeleteFilterSupported !== null) {
+      return this.softDeleteFilterSupported;
+    }
+
+    try {
+      await this.delegate.findFirst({ where: { deletedAt: null } });
+      this.softDeleteFilterSupported = true;
+    } catch {
+      this.softDeleteFilterSupported = false;
+    }
+
+    return this.softDeleteFilterSupported;
+  }
+
   private hasDeletedAt(record: T): boolean {
     return typeof record === "object" && record !== null && "deletedAt" in record;
+  }
+
+  private recordHasStatus(record: T): boolean {
+    return typeof record === "object" && record !== null && "status" in record;
   }
 
   private cleanWhere(where: Record<string, unknown>) {
