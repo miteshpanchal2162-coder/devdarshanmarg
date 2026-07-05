@@ -7,6 +7,7 @@ import {
 } from "../../common/services/api-response.service";
 import { RelationValidationService } from "../../common/services/relation-validation.service";
 import { PrismaService } from "../../database/prisma/prisma.service";
+import { serializeValue } from "../../common/utils/serialization.util";
 import {
   CreateTempleDto,
   TempleQueryDto,
@@ -151,10 +152,6 @@ export class TemplesService extends BaseCrudService<Temple> {
 
   private toResponse<T extends Record<string, unknown>>(item: T) {
     const { deletedAt: _deletedAt, ...safeItem } = item;
-    return JSON.parse(
-      JSON.stringify(safeItem, (_key, value) =>
-        typeof value === "bigint" ? value.toString() : value,
-      ),
-    );
+    return serializeValue(safeItem) as Omit<T, "deletedAt">;
   }
 }

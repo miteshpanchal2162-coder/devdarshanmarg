@@ -3,6 +3,7 @@ import { Status, TempleStatistics } from "@prisma/client";
 import { createApiResponse } from "../../common/services/api-response.service";
 import { RelationValidationService } from "../../common/services/relation-validation.service";
 import { PrismaService } from "../../database/prisma/prisma.service";
+import { serializeValue } from "../../common/utils/serialization.util";
 import { CreateTempleStatisticsDto, UpdateTempleStatisticsDto } from "./dto/temple-statistics.dto";
 
 @Injectable()
@@ -99,10 +100,6 @@ export class TempleStatisticsService {
   }
 
   private toResponse(item: TempleStatistics) {
-    return JSON.parse(
-      JSON.stringify(item, (_key, value) =>
-        typeof value === "bigint" ? value.toString() : value,
-      ),
-    );
+    return serializeValue(item) as TempleStatistics;
   }
 }

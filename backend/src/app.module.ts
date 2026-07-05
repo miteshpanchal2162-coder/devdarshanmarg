@@ -4,11 +4,32 @@ import { LoggerModule } from "nestjs-pino";
 import { appConfig } from "./config/app.config";
 import { envValidationSchema } from "./config/env.validation";
 import { PrismaModule } from "./database/prisma/prisma.module";
+import { StorageModule } from "./common/storage/storage.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AreasModule } from "./modules/areas/areas.module";
 import { AbhijitMuhuratModule } from "./modules/abhijit-muhurat/abhijit-muhurat.module";
 import { AmavasyaModule } from "./modules/amavasya/amavasya.module";
 import { ChoghadiyasModule } from "./modules/choghadiyas/choghadiyas.module";
+import { ContentAttachmentsModule } from "./modules/content-attachments/content-attachments.module";
+import { ContentCategoriesModule } from "./modules/content-categories/content-categories.module";
+import { ContentGalleriesModule } from "./modules/content-galleries/content-galleries.module";
+import { ContentGalleryItemsModule } from "./modules/content-gallery-items/content-gallery-items.module";
+import { ContentEntityMapsModule } from "./modules/content-entity-maps/content-entity-maps.module";
+import { ContentEntityTypesModule } from "./modules/content-entity-types/content-entity-types.module";
+import { ContentItemTranslationsModule } from "./modules/content-item-translations/content-item-translations.module";
+import { ContentItemTypesModule } from "./modules/content-item-types/content-item-types.module";
+import { ContentItemsModule } from "./modules/content-items/content-items.module";
+import { ContentMediaModule } from "./modules/content-media/content-media.module";
+import { ContentPublishLogsModule } from "./modules/content-publish-logs/content-publish-logs.module";
+import { ContentRelatedItemsModule } from "./modules/content-related-items/content-related-items.module";
+import { ContentSeoModule } from "./modules/content-seo/content-seo.module";
+import { ContentStatisticsModule } from "./modules/content-statistics/content-statistics.module";
+import { ContentTagMapsModule } from "./modules/content-tag-maps/content-tag-maps.module";
+import { ContentTagsModule } from "./modules/content-tags/content-tags.module";
+import { ContentTranslationsModule } from "./modules/content-translations/content-translations.module";
+import { ContentTypesModule } from "./modules/content-types/content-types.module";
+import { ContentVersionsModule } from "./modules/content-versions/content-versions.module";
+import { ContentsModule } from "./modules/contents/contents.module";
 import { EkadashiModule } from "./modules/ekadashi/ekadashi.module";
 import { GulikaKaalModule } from "./modules/gulika-kaal/gulika-kaal.module";
 import { CitiesModule } from "./modules/cities/cities.module";
@@ -53,6 +74,7 @@ import { FestivalVideosModule } from "./modules/festival-videos/festival-videos.
 import { FestivalsModule } from "./modules/festivals/festivals.module";
 import { HealthModule } from "./modules/health/health.module";
 import { KaranasModule } from "./modules/karanas/karanas.module";
+import { MediaLibraryModule } from "./modules/media-library/media-library.module";
 import { MuhuratsModule } from "./modules/muhurats/muhurats.module";
 import { NakshatrasModule } from "./modules/nakshatras/nakshatras.module";
 import { PlanetsModule } from "./modules/planets/planets.module";
@@ -116,6 +138,26 @@ import { TemplesModule } from "./modules/temples/temples.module";
 import { TithisModule } from "./modules/tithis/tithis.module";
 import { YogasModule } from "./modules/yogas/yogas.module";
 import { UsersModule } from "./modules/users/users.module";
+import { UserNotificationPreferencesModule } from "./modules/user-notification-preferences/user-notification-preferences.module";
+import { ActivityLogsModule } from "./modules/activity-logs/activity-logs.module";
+import { UserProfilesModule } from "./modules/user-profiles/user-profiles.module";
+import { UserFavoritesModule } from "./modules/user-favorites/user-favorites.module";
+import { UserRatingsModule } from "./modules/user-ratings/user-ratings.module";
+import { UserReviewsModule } from "./modules/user-reviews/user-reviews.module";
+import { UserCommentsModule } from "./modules/user-comments/user-comments.module";
+import { OtpVerificationsModule } from "./modules/otp-verifications/otp-verifications.module";
+import { UserSessionsModule } from "./modules/user-sessions/user-sessions.module";
+import { RefreshTokensModule } from "./modules/refresh-tokens/refresh-tokens.module";
+import { FestivalDatesModule } from "./modules/festival-dates/festival-dates.module";
+import { FestivalRegionsModule } from "./modules/festival-regions/festival-regions.module";
+import { FestivalTempleMapsModule } from "./modules/festival-temple-maps/festival-temple-maps.module";
+import { SeoRedirectsModule } from "./modules/seo-redirects/seo-redirects.module";
+import { SeoLandingPagesModule } from "./modules/seo-landing-pages/seo-landing-pages.module";
+import { SupportedLanguagesModule } from "./modules/supported-languages/supported-languages.module";
+import { SupportedMediaTypesModule } from "./modules/supported-media-types/supported-media-types.module";
+import { SupportedContentStatusesModule } from "./modules/supported-content-statuses/supported-content-statuses.module";
+import { PublicModule } from "./modules/public/public.module";
+import { UserApiModule } from "./modules/user-api/user-api.module";
 
 @Module({
   imports: [
@@ -144,14 +186,47 @@ import { UsersModule } from "./modules/users/users.module";
       },
     }),
     PrismaModule,
+    StorageModule,
     HealthModule,
+    PublicModule,
+    UserApiModule,
     AuthModule,
     UsersModule,
+    UserNotificationPreferencesModule,
+    ActivityLogsModule,
+    UserProfilesModule,
+    UserFavoritesModule,
+    UserRatingsModule,
+    UserReviewsModule,
+    UserCommentsModule,
+    OtpVerificationsModule,
+    UserSessionsModule,
+    RefreshTokensModule,
     ContinentsModule,
     CountriesModule,
     StatesModule,
     CitiesModule,
     AreasModule,
+    ContentsModule,
+    ContentTranslationsModule,
+    ContentAttachmentsModule,
+    ContentCategoriesModule,
+    ContentGalleriesModule,
+    ContentGalleryItemsModule,
+    ContentEntityMapsModule,
+    ContentEntityTypesModule,
+    ContentItemTranslationsModule,
+    ContentItemTypesModule,
+    ContentItemsModule,
+    ContentMediaModule,
+    ContentPublishLogsModule,
+    ContentRelatedItemsModule,
+    ContentSeoModule,
+    ContentStatisticsModule,
+    ContentTagMapsModule,
+    ContentTagsModule,
+    ContentTypesModule,
+    ContentVersionsModule,
     DeitiesModule,
     DeityTypesModule,
     DeityTranslationsModule,
@@ -189,6 +264,14 @@ import { UsersModule } from "./modules/users/users.module";
     FestivalBhajansModule,
     FestivalGalleryModule,
     FestivalVideosModule,
+    FestivalDatesModule,
+    FestivalRegionsModule,
+    FestivalTempleMapsModule,
+    SupportedLanguagesModule,
+    SupportedMediaTypesModule,
+    SupportedContentStatusesModule,
+    SeoRedirectsModule,
+    SeoLandingPagesModule,
     PanchangsModule,
     PanchangTranslationsModule,
     PanchangStatisticsModule,
@@ -217,6 +300,7 @@ import { UsersModule } from "./modules/users/users.module";
     NakshatrasModule,
     YogasModule,
     KaranasModule,
+    MediaLibraryModule,
     MuhuratsModule,
     PlanetsModule,
     RashisModule,

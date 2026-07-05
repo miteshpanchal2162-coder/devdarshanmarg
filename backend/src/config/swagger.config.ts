@@ -6,6 +6,13 @@ export function setupSwagger(
   app: INestApplication,
   configService: ConfigService,
 ) {
+  const env = configService.get<string>("app.env") ?? "development";
+  const enabled = configService.get<boolean>("swagger.enabled") ?? false;
+
+  if (env === "production" && !enabled) {
+    return;
+  }
+
   const config = new DocumentBuilder()
     .setTitle(configService.get<string>("swagger.title") ?? "DevDarshanMarg API")
     .setDescription(

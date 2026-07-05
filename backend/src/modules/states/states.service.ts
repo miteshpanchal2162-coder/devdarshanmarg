@@ -7,6 +7,7 @@ import {
 } from "../../common/services/api-response.service";
 import { RelationValidationService } from "../../common/services/relation-validation.service";
 import { PrismaService } from "../../database/prisma/prisma.service";
+import { serializeValue } from "../../common/utils/serialization.util";
 import { CreateStateDto, StateQueryDto, UpdateStateDto } from "./dto/state.dto";
 
 @Injectable()
@@ -92,10 +93,7 @@ export class StatesService extends BaseCrudService<State> {
   }
 
   private toResponse(item: State) {
-    const { deletedAt: _deletedAt, population, ...safeItem } = item;
-    return {
-      ...safeItem,
-      population: typeof population === "bigint" ? population.toString() : population,
-    };
+    const { deletedAt: _deletedAt, ...safeItem } = item;
+    return serializeValue(safeItem) as Omit<State, "deletedAt">;
   }
 }

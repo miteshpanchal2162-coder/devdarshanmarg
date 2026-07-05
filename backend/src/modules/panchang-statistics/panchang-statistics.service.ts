@@ -3,6 +3,7 @@ import { PanchangStatistics, Status } from "@prisma/client";
 import { createApiResponse } from "../../common/services/api-response.service";
 import { RelationValidationService } from "../../common/services/relation-validation.service";
 import { PrismaService } from "../../database/prisma/prisma.service";
+import { serializeValue } from "../../common/utils/serialization.util";
 import { CreatePanchangStatisticsDto, UpdatePanchangStatisticsDto } from "./dto/panchang-statistics.dto";
 
 @Injectable()
@@ -100,10 +101,6 @@ export class PanchangStatisticsService {
   }
 
   private toResponse(item: PanchangStatistics) {
-    return JSON.parse(
-      JSON.stringify(item, (_key, value) =>
-        typeof value === "bigint" ? value.toString() : value,
-      ),
-    );
+    return serializeValue(item) as PanchangStatistics;
   }
 }

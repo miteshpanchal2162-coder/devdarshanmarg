@@ -5,5 +5,6 @@ import { PanchangsService } from "./panchangs.service";
 @Module({
   controllers: [PanchangsController],
   providers: [PanchangsService],
+  exports: [PanchangsService],
 })
 export class PanchangsModule {}

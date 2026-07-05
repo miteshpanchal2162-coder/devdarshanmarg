@@ -5,5 +5,6 @@ import { PanchangDatesService } from "./panchang-dates.service";
 @Module({
   controllers: [PanchangDatesController],
   providers: [PanchangDatesService],
+  exports: [PanchangDatesService],
 })
 export class PanchangDatesModule {}

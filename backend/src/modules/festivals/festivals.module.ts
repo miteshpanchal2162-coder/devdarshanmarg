@@ -5,5 +5,6 @@ import { FestivalsService } from "./festivals.service";
 @Module({
   controllers: [FestivalsController],
   providers: [FestivalsService],
+  exports: [FestivalsService],
 })
 export class FestivalsModule {}

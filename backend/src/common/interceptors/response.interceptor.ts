@@ -5,6 +5,7 @@ import {
   NestInterceptor,
 } from "@nestjs/common";
 import { map, Observable } from "rxjs";
+import { serializeValue } from "../utils/serialization.util";
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T> {
@@ -14,18 +15,20 @@ export class ResponseInterceptor<T> implements NestInterceptor<T> {
   ): Observable<{ success: boolean; message?: string; data?: T }> {
     return next.handle().pipe(
       map((data) => {
+        const serialized = serializeValue(data) as T;
+
         if (
-          typeof data === "object" &&
-          data !== null &&
-          "success" in data
+          typeof serialized === "object" &&
+          serialized !== null &&
+          "success" in serialized
         ) {
-          return data as { success: boolean; message?: string; data?: T };
+          return serialized as { success: boolean; message?: string; data?: T };
         }
 
         return {
           success: true,
           message: "Request successful",
-          data,
+          data: serialized,
         };
       }),
     );

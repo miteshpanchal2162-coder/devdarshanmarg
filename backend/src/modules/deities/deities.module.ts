@@ -5,5 +5,6 @@ import { DeitiesService } from "./deities.service";
 @Module({
   controllers: [DeitiesController],
   providers: [DeitiesService],
+  exports: [DeitiesService],
 })
 export class DeitiesModule {}

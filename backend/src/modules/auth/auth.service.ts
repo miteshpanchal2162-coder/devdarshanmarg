@@ -1,14 +1,25 @@
 import {
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService, type JwtSignOptions } from "@nestjs/jwt";
-import { compare } from "bcrypt";
-import { createHash } from "crypto";
+import { compare, hash } from "bcrypt";
+import { OtpPurpose } from "../../common/enums/otp-purpose.enum";
+import { buildActivityDetails } from "../../common/utils/activity-log.util";
 import { PrismaService } from "../../database/prisma/prisma.service";
+import { ActivityLogsService } from "../activity-logs/activity-logs.service";
+import { OtpVerificationsService } from "../otp-verifications/otp-verifications.service";
+import { RefreshTokensService } from "../refresh-tokens/refresh-tokens.service";
+import { SessionMetadata } from "../user-sessions/dto/user-session.dto";
+import { UserSessionsService } from "../user-sessions/user-sessions.service";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { SendOtpDto } from "./dto/send-otp.dto";
+import { VerifyOtpDto } from "./dto/verify-otp.dto";
 
 @Injectable()
 export class AuthService {
@@ -16,9 +27,13 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly userSessionsService: UserSessionsService,
+    private readonly refreshTokensService: RefreshTokensService,
+    private readonly otpVerificationsService: OtpVerificationsService,
+    private readonly activityLogsService: ActivityLogsService,
   ) {}
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, metadata: SessionMetadata = {}) {
     const user = await this.prisma.user.findFirst({
       where: {
         deletedAt: null,
@@ -31,49 +46,57 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    await this.prisma.user.update({
-      data: { lastLoginAt: new Date() },
-      where: { id: user.id },
-    });
+    const tokens = await this.signTokens(user.id, user.email, user.role);
 
-    const tokens = await this.issueTokens(user.id, user.email, user.role);
+    const session = await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        data: { lastLoginAt: new Date() },
+        where: { id: user.id },
+      });
+
+      const createdSession = await this.userSessionsService.openSession(user.id, metadata, tx);
+      await this.refreshTokensService.storeToken(
+        user.id,
+        tokens.refreshToken,
+        createdSession.id,
+        tx,
+      );
+
+      return createdSession;
+    });
 
     return {
       message: "Login successful",
       data: {
         user: this.toProfile(user),
+        sessionId: session.id,
         ...tokens,
       },
     };
   }
 
   async refresh(dto: RefreshTokenDto) {
-    const tokenHash = this.hashToken(dto.refreshToken);
-    const existing = await this.prisma.refreshToken.findUnique({
-      where: { refreshToken: tokenHash },
-      include: { user: true },
+    const { tokens } = await this.prisma.$transaction(async (tx) => {
+      const rotated = await this.refreshTokensService.rotateToken(dto.refreshToken, tx);
+      const nextTokens = await this.signTokens(
+        rotated.user.id,
+        rotated.user.email,
+        rotated.user.role,
+      );
+
+      await this.refreshTokensService.storeToken(
+        rotated.user.id,
+        nextTokens.refreshToken,
+        rotated.deviceInfo ?? undefined,
+        tx,
+      );
+
+      if (rotated.deviceInfo) {
+        await this.userSessionsService.touchActivity(rotated.deviceInfo, tx);
+      }
+
+      return { tokens: nextTokens };
     });
-
-    if (
-      !existing ||
-      existing.revokedAt ||
-      existing.expiresAt <= new Date() ||
-      existing.user.deletedAt ||
-      existing.user.status !== "ACTIVE"
-    ) {
-      throw new UnauthorizedException("Invalid refresh token");
-    }
-
-    await this.prisma.refreshToken.update({
-      data: { revokedAt: new Date() },
-      where: { id: existing.id },
-    });
-
-    const tokens = await this.issueTokens(
-      existing.user.id,
-      existing.user.email,
-      existing.user.role,
-    );
 
     return {
       message: "Token refreshed",
@@ -82,12 +105,12 @@ export class AuthService {
   }
 
   async logout(dto: RefreshTokenDto) {
-    await this.prisma.refreshToken.updateMany({
-      data: { revokedAt: new Date() },
-      where: {
-        refreshToken: this.hashToken(dto.refreshToken),
-        revokedAt: null,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const revoked = await this.refreshTokensService.revokeByRawToken(dto.refreshToken, tx);
+
+      if (revoked?.deviceInfo) {
+        await this.userSessionsService.logoutSessionById(revoked.deviceInfo, tx);
+      }
     });
 
     return {
@@ -115,7 +138,215 @@ export class AuthService {
     };
   }
 
-  private async issueTokens(userId: string, email: string, role: string) {
+  async sendOtp(dto: SendOtpDto) {
+    await this.validateOtpPurposeContext(dto.mobile, dto.purpose);
+
+    const otpRecord = await this.otpVerificationsService.sendPublicOtp(
+      dto.mobile,
+      dto.purpose,
+    );
+
+    return {
+      message: "OTP sent successfully",
+      data: {
+        mobile: dto.mobile,
+        purpose: dto.purpose,
+        expireTime: otpRecord.expireTime,
+      },
+    };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    const verified = await this.otpVerificationsService.verifyPublicOtp(
+      dto.mobile,
+      dto.purpose,
+      dto.otp,
+    );
+
+    const token = await this.signVerificationToken({
+      otpId: verified.id,
+      mobile: dto.mobile,
+      purpose: dto.purpose,
+    });
+
+    return {
+      message: "OTP verified successfully",
+      data: {
+        mobile: dto.mobile,
+        purpose: dto.purpose,
+        verificationToken: token.verificationToken,
+        expiresIn: token.expiresIn,
+      },
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.findActiveUserByMobile(dto.mobile);
+
+    if (user) {
+      await this.otpVerificationsService.sendPublicOtp(
+        dto.mobile,
+        OtpPurpose.RESET_PASSWORD,
+      );
+    }
+
+    return {
+      message: "If the mobile number is registered, an OTP has been sent",
+      data: null,
+    };
+  }
+
+  async resetPassword(
+    dto: ResetPasswordDto,
+    metadata: SessionMetadata = {},
+  ) {
+    const tokenPayload = await this.verifyVerificationToken(dto.verificationToken);
+
+    if (tokenPayload.purpose !== OtpPurpose.RESET_PASSWORD) {
+      throw new UnauthorizedException("Invalid verification token purpose");
+    }
+
+    await this.otpVerificationsService.findVerifiedPublicOtp(
+      tokenPayload.otpId,
+      tokenPayload.mobile,
+      OtpPurpose.RESET_PASSWORD,
+    );
+
+    const user = await this.findActiveUserByMobile(tokenPayload.mobile);
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { passwordHash: await hash(dto.newPassword, 12) },
+      });
+
+      await tx.otpVerification.delete({ where: { id: tokenPayload.otpId } });
+
+      await tx.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      await tx.userSession.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: {
+          isActive: false,
+          logoutTime: new Date(),
+        },
+      });
+    });
+
+    await this.activityLogsService.recordActivity({
+      userId: user.id,
+      action: "PASSWORD CHANGE",
+      entityType: "User",
+      entityId: user.id,
+      ipAddress: metadata.ipAddress,
+      details: buildActivityDetails({
+        method: "POST",
+        path: "/auth/reset-password",
+        userAgent: metadata.userAgent,
+      }),
+    });
+
+    return {
+      message: "Password reset successfully",
+      data: null,
+    };
+  }
+
+  private async validateOtpPurposeContext(mobile: string, purpose: OtpPurpose) {
+    const user = await this.findActiveUserByMobile(mobile);
+
+    if (purpose === OtpPurpose.LOGIN && !user) {
+      throw new NotFoundException("User not found");
+    }
+
+    if (purpose === OtpPurpose.REGISTER && user) {
+      throw new UnauthorizedException("Mobile number is already registered");
+    }
+
+    if (purpose === OtpPurpose.RESET_PASSWORD && !user) {
+      throw new NotFoundException("User not found");
+    }
+  }
+
+  private async findActiveUserByMobile(mobile: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        mobile,
+        deletedAt: null,
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  private async signVerificationToken(input: {
+    mobile: string;
+    otpId: string;
+    purpose: OtpPurpose;
+  }) {
+    const expiresIn = this.configService.get<string>(
+      "otp.verificationTokenExpiresIn",
+    ) as JwtSignOptions["expiresIn"];
+
+    const verificationToken = await this.jwtService.signAsync(
+      {
+        sub: input.otpId,
+        mobile: input.mobile,
+        purpose: input.purpose,
+        type: "otp_verification",
+      },
+      {
+        expiresIn,
+        secret: this.configService.getOrThrow<string>("auth.jwtAccessSecret"),
+      },
+    );
+
+    return {
+      verificationToken,
+      expiresIn: this.configService.get<string>("otp.verificationTokenExpiresIn") ?? "10m",
+    };
+  }
+
+  private async verifyVerificationToken(token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{
+        mobile?: string;
+        purpose?: OtpPurpose;
+        sub?: string;
+        type?: string;
+      }>(token, {
+        secret: this.configService.getOrThrow<string>("auth.jwtAccessSecret"),
+      });
+
+      if (
+        payload.type !== "otp_verification" ||
+        !payload.sub ||
+        !payload.mobile ||
+        !payload.purpose
+      ) {
+        throw new UnauthorizedException("Invalid verification token");
+      }
+
+      return {
+        otpId: payload.sub,
+        mobile: payload.mobile,
+        purpose: payload.purpose,
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      throw new UnauthorizedException("Invalid or expired verification token");
+    }
+  }
+
+  private async signTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
     const accessExpiresIn = this.configService.get<string>(
       "auth.jwtAccessExpiresIn",
@@ -132,37 +363,10 @@ export class AuthService {
       secret: this.configService.getOrThrow<string>("auth.jwtRefreshSecret"),
     });
 
-    await this.prisma.refreshToken.create({
-      data: {
-        expiresAt: this.refreshExpiresAt(),
-        refreshToken: this.hashToken(refreshToken),
-        userId,
-      },
-    });
-
     return {
       accessToken,
       refreshToken,
     };
-  }
-
-  private hashToken(token: string) {
-    return createHash("sha256").update(token).digest("hex");
-  }
-
-  private refreshExpiresAt() {
-    const value = this.configService.get<string>("auth.jwtRefreshExpiresIn") ?? "7d";
-    const match = value.match(/^(\d+)([dhms])$/);
-    const amount = match ? Number(match[1]) : 7;
-    const unit = match?.[2] ?? "d";
-    const multipliers = {
-      d: 24 * 60 * 60 * 1000,
-      h: 60 * 60 * 1000,
-      m: 60 * 1000,
-      s: 1000,
-    };
-
-    return new Date(Date.now() + amount * multipliers[unit as keyof typeof multipliers]);
   }
 
   private toProfile(user: {

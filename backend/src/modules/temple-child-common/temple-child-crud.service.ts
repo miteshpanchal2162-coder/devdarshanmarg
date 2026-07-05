@@ -14,6 +14,7 @@ import {
   buildStatusFilter,
 } from "../../common/utils/query.util";
 import { RelationValidationService } from "../../common/services/relation-validation.service";
+import { serializeValue } from "../../common/utils/serialization.util";
 
 type TempleChildOptions = {
   allowedFilterFields?: string[];
@@ -235,10 +236,6 @@ export abstract class TempleChildCrudService<T extends Record<string, unknown>> 
 
   private toResponse(item: T) {
     const { deletedAt: _deletedAt, ...safeItem } = item;
-    return JSON.parse(
-      JSON.stringify(safeItem, (_key, value) =>
-        typeof value === "bigint" ? value.toString() : value,
-      ),
-    );
+    return serializeValue(safeItem) as Omit<T, "deletedAt">;
   }
 }

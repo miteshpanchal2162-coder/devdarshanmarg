@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { UserEntityType } from "@prisma/client";
 import { PrismaService } from "../../database/prisma/prisma.service";
 
 @Injectable()
@@ -10,6 +11,15 @@ export class RelationValidationService {
     cityId?: string | null;
     categoryId?: string | null;
     continentId?: string | null;
+    contentId?: string | null;
+    contentCategoryId?: string | null;
+    contentEntityTypeId?: string | null;
+    contentGalleryId?: string | null;
+    contentItemId?: string | null;
+    contentItemTypeId?: string | null;
+    contentMediaId?: string | null;
+    contentTagId?: string | null;
+    contentTypeId?: string | null;
     countryId?: string | null;
     deityCategoryId?: string | null;
     deityId?: string | null;
@@ -26,6 +36,7 @@ export class RelationValidationService {
     planetId?: string | null;
     rashiId?: string | null;
     relatedDeityId?: string | null;
+    relatedContentItemId?: string | null;
     stateId?: string | null;
     templeId?: string | null;
     tithiId?: string | null;
@@ -37,10 +48,20 @@ export class RelationValidationService {
       input.templeId ? this.ensureTemple(input.templeId) : undefined,
       input.categoryId ? this.ensureTempleCategory(input.categoryId) : undefined,
       input.festivalCategoryId ? this.ensureFestivalCategory(input.festivalCategoryId) : undefined,
+      input.contentId ? this.ensureContent(input.contentId) : undefined,
+      input.contentCategoryId ? this.ensureContentCategory(input.contentCategoryId) : undefined,
+      input.contentEntityTypeId ? this.ensureContentEntityType(input.contentEntityTypeId) : undefined,
+      input.contentGalleryId ? this.ensureContentGallery(input.contentGalleryId) : undefined,
+      input.contentItemId ? this.ensureContentItem(input.contentItemId) : undefined,
+      input.contentItemTypeId ? this.ensureContentItemType(input.contentItemTypeId) : undefined,
+      input.contentMediaId ? this.ensureContentMedia(input.contentMediaId) : undefined,
+      input.contentTagId ? this.ensureContentTag(input.contentTagId) : undefined,
+      input.contentTypeId ? this.ensureLegacyContentType(input.contentTypeId) : undefined,
       input.continentId ? this.ensureContinent(input.continentId) : undefined,
       input.countryId ? this.ensureCountry(input.countryId) : undefined,
       input.deityId ? this.ensureDeity(input.deityId) : undefined,
       input.relatedDeityId ? this.ensureDeity(input.relatedDeityId) : undefined,
+      input.relatedContentItemId ? this.ensureContentItem(input.relatedContentItemId) : undefined,
       input.deityTypeId ? this.ensureDeityType(input.deityTypeId) : undefined,
       input.deityCategoryId ? this.ensureDeityCategory(input.deityCategoryId) : undefined,
       input.stateId ? this.ensureState(input.stateId) : undefined,
@@ -63,6 +84,25 @@ export class RelationValidationService {
     ]);
   }
 
+  async validateUserEntity(entityType: UserEntityType, entityId: string) {
+    switch (entityType) {
+      case UserEntityType.TEMPLE:
+        await this.ensureTemple(entityId);
+        break;
+      case UserEntityType.FESTIVAL:
+        await this.ensureFestival(entityId);
+        break;
+      case UserEntityType.DEITY:
+        await this.ensureDeity(entityId);
+        break;
+      case UserEntityType.CONTENT:
+        await this.ensureContentItem(entityId);
+        break;
+      default:
+        throw new BadRequestException("Unsupported entity type");
+    }
+  }
+
   async validatePanchangDateHierarchy(panchangId: string, panchangDateId: string) {
     await this.validateForeignKeys({ panchangId });
     const panchangDate = await this.prisma.panchangDate.findFirst({
@@ -70,6 +110,26 @@ export class RelationValidationService {
     });
     if (!panchangDate) {
       throw new NotFoundException("Panchang date not found");
+    }
+  }
+
+  async validateContentGalleryHierarchy(contentItemId: string, galleryId: string) {
+    await this.validateForeignKeys({ contentItemId });
+    const gallery = await this.prisma.contentGallery.findFirst({
+      where: { id: galleryId, contentId: contentItemId, deletedAt: null },
+    });
+    if (!gallery) {
+      throw new NotFoundException("Content gallery not found");
+    }
+  }
+
+  async validateContentMediaHierarchy(contentItemId: string, mediaId: string) {
+    await this.validateForeignKeys({ contentItemId });
+    const media = await this.prisma.contentMedia.findFirst({
+      where: { id: mediaId, contentId: contentItemId, deletedAt: null },
+    });
+    if (!media) {
+      throw new NotFoundException("Content media not found");
     }
   }
 
@@ -270,6 +330,60 @@ export class RelationValidationService {
   private async ensurePanchangDate(id: string) {
     if (!(await this.prisma.panchangDate.findFirst({ where: { id } }))) {
       throw new NotFoundException("Panchang date not found");
+    }
+  }
+
+  private async ensureContent(id: string) {
+    if (!(await this.prisma.content.findFirst({ where: { id } }))) {
+      throw new NotFoundException("Content not found");
+    }
+  }
+
+  private async ensureContentItem(id: string) {
+    if (!(await this.prisma.contentItem.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Content item not found");
+    }
+  }
+
+  private async ensureContentCategory(id: string) {
+    if (!(await this.prisma.contentCategory.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Content category not found");
+    }
+  }
+
+  private async ensureLegacyContentType(id: string) {
+    if (!(await this.prisma.contentType.findFirst({ where: { id } }))) {
+      throw new NotFoundException("Content type not found");
+    }
+  }
+
+  private async ensureContentItemType(id: string) {
+    if (!(await this.prisma.contentItemType.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Content item type not found");
+    }
+  }
+
+  private async ensureContentEntityType(id: string) {
+    if (!(await this.prisma.contentEntityType.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Content entity type not found");
+    }
+  }
+
+  private async ensureContentGallery(id: string) {
+    if (!(await this.prisma.contentGallery.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Content gallery not found");
+    }
+  }
+
+  private async ensureContentMedia(id: string) {
+    if (!(await this.prisma.contentMedia.findFirst({ where: { deletedAt: null, id } }))) {
+      throw new NotFoundException("Content media not found");
+    }
+  }
+
+  private async ensureContentTag(id: string) {
+    if (!(await this.prisma.contentTag.findFirst({ where: { id } }))) {
+      throw new NotFoundException("Content tag not found");
     }
   }
 }
