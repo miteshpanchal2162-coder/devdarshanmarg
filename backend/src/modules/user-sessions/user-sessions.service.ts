@@ -187,6 +187,35 @@ export class UserSessionsService extends BaseCrudService<UserSession> {
     return createApiResponse("User session revoked successfully", item);
   }
 
+  async logoutSessionForUser(userId: string, sessionId: string) {
+    const session = await this.prisma.userSession.findUnique({ where: { id: sessionId } });
+
+    if (!session || session.userId !== userId) {
+      throw new NotFoundException("User session not found");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (session.isActive) {
+        await tx.userSession.update({
+          where: { id: sessionId },
+          data: {
+            isActive: false,
+            logoutTime: new Date(),
+          },
+        });
+      }
+
+      await tx.refreshToken.updateMany({
+        where: { userId, deviceInfo: sessionId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    });
+
+    return createApiResponse("User session logged out successfully", {
+      id: sessionId,
+    });
+  }
+
   async logoutAllDevices(userId: string) {
     await this.relationValidation.validateForeignKeys({ userId });
 

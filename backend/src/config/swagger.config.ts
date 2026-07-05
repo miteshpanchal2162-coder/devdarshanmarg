@@ -20,6 +20,7 @@ export function setupSwagger(
         "DevDarshanMarg backend API",
     )
     .setVersion(configService.get<string>("swagger.version") ?? "1.0.0")
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

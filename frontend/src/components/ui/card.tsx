@@ -4,19 +4,41 @@ import { cn } from "@/lib/utils"
 
 function Card({
   className,
+  children,
+  hover = false,
+  loading = false,
   size = "default",
+  variant = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  hover?: boolean
+  loading?: boolean
+  size?: "default" | "sm"
+  variant?: "default" | "outlined" | "elevated" | "glass"
+}) {
   return (
     <div
+      aria-busy={loading || undefined}
       data-slot="card"
       data-size={size}
+      data-variant={variant}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card relative flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        variant === "default" && "ring-1 ring-foreground/10",
+        variant === "outlined" && "border border-border",
+        variant === "elevated" && "shadow-soft ring-1 ring-foreground/5",
+        variant === "glass" && "glass-panel shadow-soft",
+        hover && "transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-premium",
+        loading && "pointer-events-none opacity-70",
         className
       )}
       {...props}
-    />
+    >
+      {loading ? (
+        <div className="absolute inset-0 z-10 animate-pulse bg-muted/40" />
+      ) : null}
+      {children}
+    </div>
   )
 }
 

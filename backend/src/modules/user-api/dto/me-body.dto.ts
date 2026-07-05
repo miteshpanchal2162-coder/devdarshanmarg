@@ -5,6 +5,7 @@ import { CreateUserRatingDto } from "../../user-ratings/dto/user-rating.dto";
 import { UpdateUserRatingDto } from "../../user-ratings/dto/update-user-rating.dto";
 import { CreateUserReviewDto } from "../../user-reviews/dto/user-review.dto";
 import { CreateUserCommentDto } from "../../user-comments/dto/user-comment.dto";
+import { UpdateUserNotificationPreferenceDto } from "../../user-notification-preferences/dto/update-user-notification-preference.dto";
 
 export class MeUpdateProfileDto extends UpdateUserProfileDto {}
 
@@ -25,3 +26,5 @@ export class MeUpdateReviewDto extends PartialType(MeCreateReviewDto) {}
 export class MeCreateCommentDto extends OmitType(CreateUserCommentDto, ["userId", "status"] as const) {}
 
 export class MeUpdateCommentDto extends PartialType(MeCreateCommentDto) {}
+
+export class MeUpdateNotificationPreferencesDto extends UpdateUserNotificationPreferenceDto {}

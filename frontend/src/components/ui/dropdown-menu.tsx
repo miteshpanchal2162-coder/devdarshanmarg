@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
+import type { ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
@@ -75,10 +76,13 @@ function DropdownMenuLabel({
 
 function DropdownMenuItem({
   className,
+  icon,
   inset,
   variant = "default",
+  children,
   ...props
 }: MenuPrimitive.Item.Props & {
+  icon?: ReactNode
   inset?: boolean
   variant?: "default" | "destructive"
 }) {
@@ -92,7 +96,10 @@ function DropdownMenuItem({
         className
       )}
       {...props}
-    />
+    >
+      {icon ? <span className="text-muted-foreground">{icon}</span> : null}
+      {children}
+    </MenuPrimitive.Item>
   )
 }
 
@@ -102,10 +109,12 @@ function DropdownMenuSub({ ...props }: MenuPrimitive.SubmenuRoot.Props) {
 
 function DropdownMenuSubTrigger({
   className,
+  icon,
   inset,
   children,
   ...props
 }: MenuPrimitive.SubmenuTrigger.Props & {
+  icon?: ReactNode
   inset?: boolean
 }) {
   return (
@@ -118,6 +127,7 @@ function DropdownMenuSubTrigger({
       )}
       {...props}
     >
+      {icon ? <span className="text-muted-foreground">{icon}</span> : null}
       {children}
       <ChevronRightIcon className="ml-auto" />
     </MenuPrimitive.SubmenuTrigger>
@@ -149,9 +159,11 @@ function DropdownMenuCheckboxItem({
   className,
   children,
   checked,
+  icon,
   inset,
   ...props
 }: MenuPrimitive.CheckboxItem.Props & {
+  icon?: ReactNode
   inset?: boolean
 }) {
   return (
@@ -170,10 +182,10 @@ function DropdownMenuCheckboxItem({
         data-slot="dropdown-menu-checkbox-item-indicator"
       >
         <MenuPrimitive.CheckboxItemIndicator>
-          <CheckIcon
-          />
+          <CheckIcon />
         </MenuPrimitive.CheckboxItemIndicator>
       </span>
+      {icon ? <span className="text-muted-foreground">{icon}</span> : null}
       {children}
     </MenuPrimitive.CheckboxItem>
   )
@@ -191,9 +203,11 @@ function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
 function DropdownMenuRadioItem({
   className,
   children,
+  icon,
   inset,
   ...props
 }: MenuPrimitive.RadioItem.Props & {
+  icon?: ReactNode
   inset?: boolean
 }) {
   return (
@@ -211,10 +225,10 @@ function DropdownMenuRadioItem({
         data-slot="dropdown-menu-radio-item-indicator"
       >
         <MenuPrimitive.RadioItemIndicator>
-          <CheckIcon
-          />
+          <CheckIcon />
         </MenuPrimitive.RadioItemIndicator>
       </span>
+      {icon ? <span className="text-muted-foreground">{icon}</span> : null}
       {children}
     </MenuPrimitive.RadioItem>
   )

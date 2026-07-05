@@ -1,83 +1,28 @@
-/** Shared API response types */
+export type BaseQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  filters?: Record<string, string | number | boolean>;
+};
 
-export interface PaginationMeta {
+export type PaginationMeta = {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
-}
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+};
 
-export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-}
-
-export interface PaginatedResponse<T> {
+export type PaginatedResult<T> = {
   items: T[];
-  pagination: PaginationMeta;
-}
+  meta: PaginationMeta;
+};
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: User;
-}
-
-export interface DashboardStats {
-  counts: {
-    temples: number;
-    festivals: number;
-    media: number;
-    users: number;
-    contents: number;
-  };
-  recentActivity: ActivityLog[];
-}
-
-export interface ActivityLog {
-  id: string;
-  action: string;
-  entityType: string;
-  entityId?: string;
-  createdAt: string;
-  user?: { name: string; email?: string };
-}
-
-export interface Temple {
-  id: string;
-  slug: string;
-  isActive: boolean;
-  isFeatured: boolean;
-  createdAt: string;
-  translations?: { name: string; language: string }[];
-  city?: { slug: string };
-  state?: { slug: string };
-  deityType?: { slug: string };
-}
-
-export interface MediaItem {
-  id: string;
-  filename: string;
-  originalName: string;
-  mimeType: string;
-  mediaType: string;
-  storagePath: string;
-  fileSize: number;
-  altText?: string;
-  createdAt: string;
-  uploadedBy?: { name: string };
-}
-
-export interface SlugEntity {
-  id: string;
-  slug: string;
-  isActive?: boolean;
-  createdAt: string;
-}
+export type ApiResponse<T> = {
+  success: boolean;
+  message?: string;
+  data: T;
+};

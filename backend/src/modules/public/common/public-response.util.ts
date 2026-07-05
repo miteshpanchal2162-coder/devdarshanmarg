@@ -26,6 +26,9 @@ const INTERNAL_FIELDS = new Set([
   "panchangCode",
   "uploadedById",
   "isSearchable",
+  "storagePath",
+  "storageType",
+  "mediaType",
 ]);
 
 type PublicDelegate = {

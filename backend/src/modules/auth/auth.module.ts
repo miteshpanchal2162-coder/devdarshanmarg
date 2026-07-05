@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
-import { ThrottlerModule } from "@nestjs/throttler";
 import { PassportModule } from "@nestjs/passport";
 import { OtpVerificationsModule } from "../otp-verifications/otp-verifications.module";
 import { ActivityLogsModule } from "../activity-logs/activity-logs.module";
@@ -14,7 +13,6 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
   imports: [
     PassportModule,
     JwtModule.register({}),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     UserSessionsModule,
     RefreshTokensModule,
     OtpVerificationsModule,

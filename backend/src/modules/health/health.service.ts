@@ -1,22 +1,38 @@
 import { Injectable } from "@nestjs/common";
-import { existsSync } from "fs";
-import { readFileSync } from "fs";
+import { ConfigService } from "@nestjs/config";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { getUploadRoot } from "../../common/storage/storage.constants";
 import { PrismaService } from "../../database/prisma/prisma.service";
 
 @Injectable()
 export class HealthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async check() {
-    const memory = process.memoryUsage();
+    const isProduction =
+      (this.configService.get<string>("app.env") ?? process.env.NODE_ENV) === "production";
     const [database, storage] = await Promise.all([
       this.checkDatabase(),
       Promise.resolve(this.checkStorage()),
     ]);
 
     const applicationStatus = database.status === "up" && storage.status === "up" ? "up" : "degraded";
+
+    if (isProduction) {
+      return {
+        success: true,
+        status: applicationStatus === "up" ? "ok" : "degraded",
+        timestamp: new Date().toISOString(),
+        database,
+        storage: { status: storage.status },
+      };
+    }
+
+    const memory = process.memoryUsage();
 
     return {
       success: true,

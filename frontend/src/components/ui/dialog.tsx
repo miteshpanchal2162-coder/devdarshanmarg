@@ -5,7 +5,15 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { XIcon } from "lucide-react"
+import { Loader2Icon, XIcon } from "lucide-react"
+
+const dialogSizeClass = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-lg",
+  lg: "sm:max-w-3xl",
+  fullscreen:
+    "h-[100dvh] max-h-[100dvh] max-w-none rounded-none sm:h-[calc(100dvh-2rem)] sm:max-w-[calc(100%-2rem)] sm:rounded-xl",
+} as const
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -42,23 +50,39 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  loading,
   showCloseButton = true,
+  size = "md",
   ...props
 }: DialogPrimitive.Popup.Props & {
+  loading?: boolean
   showCloseButton?: boolean
+  size?: keyof typeof dialogSizeClass
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        data-size={size}
+        aria-busy={loading || undefined}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          dialogSizeClass[size],
           className
         )}
         {...props}
       >
         {children}
+        {loading ? (
+          <div
+            aria-live="polite"
+            className="absolute inset-0 z-10 grid place-items-center rounded-[inherit] bg-popover/70 backdrop-blur-sm"
+          >
+            <Loader2Icon className="size-5 animate-spin text-primary" />
+            <span className="sr-only">Loading dialog content</span>
+          </div>
+        ) : null}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
@@ -77,6 +101,25 @@ function DialogContent({
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>
+  )
+}
+
+function DialogBody({
+  className,
+  scrollable = true,
+  ...props
+}: React.ComponentProps<"div"> & {
+  scrollable?: boolean
+}) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        scrollable && "max-h-[min(60dvh,34rem)] overflow-y-auto pr-1",
+        className
+      )}
+      {...props}
+    />
   )
 }
 
@@ -151,6 +194,7 @@ export {
   DialogClose,
   DialogContent,
   DialogDescription,
+  DialogBody,
   DialogFooter,
   DialogHeader,
   DialogOverlay,

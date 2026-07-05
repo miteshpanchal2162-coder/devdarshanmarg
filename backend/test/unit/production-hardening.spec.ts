@@ -203,7 +203,10 @@ describe("production hardening", () => {
       const prisma = {
         $queryRaw: jest.fn().mockResolvedValue([{ "?column?": 1 }]),
       };
-      const service = new HealthService(prisma as never);
+      const configService = {
+        get: jest.fn().mockReturnValue("development"),
+      };
+      const service = new HealthService(prisma as never, configService as never);
       const result = await service.check();
 
       expect(prisma.$queryRaw).toHaveBeenCalled();
@@ -214,15 +217,42 @@ describe("production hardening", () => {
       expect(result.storage?.status).toBe("up");
       expect(result.uptime).toBeGreaterThanOrEqual(0);
       expect(result.version).toBeDefined();
-      expect(result.memory.heapUsed).toBeGreaterThan(0);
+      expect(result.memory?.heapUsed).toBeGreaterThan(0);
       expect(result.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it("returns minimal health payload in production", async () => {
+      const prisma = {
+        $queryRaw: jest.fn().mockResolvedValue([{ "?column?": 1 }]),
+      };
+      const configService = {
+        get: jest.fn().mockReturnValue("production"),
+      };
+      const service = new HealthService(prisma as never, configService as never);
+      const result = await service.check();
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          status: "ok",
+          database: { status: "up" },
+          storage: { status: "up" },
+        }),
+      );
+      expect(result).not.toHaveProperty("memory");
+      expect(result).not.toHaveProperty("uptime");
+      expect(result).not.toHaveProperty("version");
+      expect(result.storage).not.toHaveProperty("path");
     });
 
     it("marks health as degraded when database is down", async () => {
       const prisma = {
         $queryRaw: jest.fn().mockRejectedValue(new Error("db down")),
       };
-      const service = new HealthService(prisma as never);
+      const configService = {
+        get: jest.fn().mockReturnValue("development"),
+      };
+      const service = new HealthService(prisma as never, configService as never);
       const result = await service.check();
 
       expect(result.status).toBe("degraded");

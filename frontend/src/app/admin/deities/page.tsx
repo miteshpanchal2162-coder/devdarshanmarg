@@ -1,18 +1,17 @@
-import { AdminHeader } from "@/components/admin/admin-header";
-import { EntityListPage } from "@/components/admin/entity-list-page";
+import type { Metadata } from "next";
+import { DeityListPageContent } from "@/components/admin/deities/deity-management";
+import { siteConfig } from "@/constants/site";
+
+export const metadata: Metadata = {
+  title: "Deities",
+  description: "Manage deity records through the DevDarshanMarg enterprise admin UI.",
+  robots: { index: false, follow: false },
+  openGraph: {
+    title: "Deities | DevDarshanMarg Admin",
+    description: siteConfig.description,
+  },
+};
 
 export default function DeitiesPage() {
-  return (
-    <>
-      <AdminHeader title="Deities" />
-      <div className="flex flex-1 flex-col p-4 md:p-6">
-        <EntityListPage
-          title="Deity Types"
-          description="Manage deity classifications (Shiva, Vishnu, Shakti, etc.)"
-          endpoint="/deities"
-          entityName="Deity"
-        />
-      </div>
-    </>
-  );
+  return <DeityListPageContent />;
 }

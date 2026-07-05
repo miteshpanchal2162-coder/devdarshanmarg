@@ -31,8 +31,17 @@ DevDarshanMarg/
 │   │   └── modules/         # Feature modules (temples, auth, public, …)
 │   ├── test/                # Centralized unit + e2e tests
 │   └── uploads/             # Default local upload directory
-├── frontend/                # Next.js public app
-├── admin-panel/             # Admin UI
+├── frontend/                # Single Next.js app (public + admin + auth)
+│   └── src/
+│       ├── app/
+│       │   ├── (public)/    # User website
+│       │   ├── admin/       # Admin panel
+│       │   └── (auth)/      # Login / OTP / reset
+│       ├── components/      # admin/, common/, ui/
+│       ├── hooks/           # queries/, mutations/
+│       ├── services/        # API layer (axios + React Query)
+│       ├── providers/
+│       └── stores/
 ├── docs/                    # Database ER and docs
 └── docker-compose.yml       # PostgreSQL for local development
 ```
@@ -221,9 +230,16 @@ npm run dev
 
 App: **http://localhost:3000**
 
+- Public site: `/`
+- Admin panel: `/admin/dashboard`
+- Auth: `/login`, `/forgot-password`, `/otp-verification`, `/reset-password`
+
+Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:4000` in `.env.local`.
+
 ### Admin login (after seed)
 
-- URL: http://localhost:3000/admin/login
+- Admin URL: http://localhost:3000/admin/dashboard
+- Auth URL: http://localhost:3000/login
 - Email: `admin@devdarshanmarg.com`
 - Password: `admin123`
 

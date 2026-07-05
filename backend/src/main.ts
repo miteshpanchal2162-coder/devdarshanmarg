@@ -11,7 +11,6 @@ import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { RequestLoggingInterceptor } from "./common/interceptors/request-logging.interceptor";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
-import { getUploadRoot } from "./common/storage/storage.constants";
 import { buildHelmetOptions } from "./config/helmet.config";
 import { setupSwagger } from "./config/swagger.config";
 
@@ -43,8 +42,6 @@ async function bootstrap() {
     new RequestLoggingInterceptor(),
     new ResponseInterceptor(),
   );
-
-  app.useStaticAssets(getUploadRoot(), { prefix: "/uploads/" });
 
   setupSwagger(app, configService);
 

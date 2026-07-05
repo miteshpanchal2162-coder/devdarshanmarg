@@ -1,8 +1,13 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { APP_GUARD } from "@nestjs/core";
+import { JwtModule, JwtService } from "@nestjs/jwt";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { LoggerModule } from "nestjs-pino";
+import { ConfigService } from "@nestjs/config";
 import { appConfig } from "./config/app.config";
 import { envValidationSchema } from "./config/env.validation";
+import { createThrottlerOptions } from "./config/throttler.config";
 import { PrismaModule } from "./database/prisma/prisma.module";
 import { StorageModule } from "./common/storage/storage.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -158,6 +163,7 @@ import { SupportedMediaTypesModule } from "./modules/supported-media-types/suppo
 import { SupportedContentStatusesModule } from "./modules/supported-content-statuses/supported-content-statuses.module";
 import { PublicModule } from "./modules/public/public.module";
 import { UserApiModule } from "./modules/user-api/user-api.module";
+import { AdminDashboardModule } from "./modules/admin-dashboard/admin-dashboard.module";
 
 @Module({
   imports: [
@@ -185,11 +191,18 @@ import { UserApiModule } from "./modules/user-api/user-api.module";
             : undefined,
       },
     }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule, JwtModule.register({})],
+      inject: [ConfigService, JwtService],
+      useFactory: (configService: ConfigService, jwtService: JwtService) =>
+        createThrottlerOptions(configService, jwtService),
+    }),
     PrismaModule,
     StorageModule,
     HealthModule,
     PublicModule,
     UserApiModule,
+    AdminDashboardModule,
     AuthModule,
     UsersModule,
     UserNotificationPreferencesModule,
@@ -340,6 +353,12 @@ import { UserApiModule } from "./modules/user-api/user-api.module";
     TempleQrCodesModule,
     TempleChangeHistoryModule,
     TemplesModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

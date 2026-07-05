@@ -4,9 +4,175 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
-import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, Loader2, SearchIcon, XIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+export type SelectOption = {
+  label: string
+  value: string
+  disabled?: boolean
+}
+
+export type SelectOptionGroup = {
+  label: string
+  options: SelectOption[]
+}
+
+type SelectProps = {
+  value?: string
+  onValueChange?: (value: string) => void
+  options?: SelectOption[]
+  groups?: SelectOptionGroup[]
+  placeholder?: string
+  search?: boolean
+  clear?: boolean
+  disabled?: boolean
+  loading?: boolean
+  emptyText?: string
+  className?: string
+}
+
+function Select({
+  value,
+  onValueChange,
+  options = [],
+  groups,
+  placeholder = "Select option",
+  search,
+  clear,
+  disabled,
+  loading,
+  emptyText = "No options found",
+  className,
+}: SelectProps) {
+  const [open, setOpen] = React.useState(false)
+  const [query, setQuery] = React.useState("")
+  const buttonRef = React.useRef<HTMLButtonElement>(null)
+  const listboxId = React.useId()
+  const groupedOptions = groups ?? [{ label: "", options }]
+  const flattenedOptions = groupedOptions.flatMap((group) => group.options)
+  const selectedOption = flattenedOptions.find((option) => option.value === value)
+  const filteredGroups = groupedOptions
+    .map((group) => ({
+      ...group,
+      options: group.options.filter((option) =>
+        option.label.toLowerCase().includes(query.toLowerCase())
+      ),
+    }))
+    .filter((group) => group.options.length > 0)
+
+  function selectOption(option: SelectOption) {
+    if (option.disabled) return
+    onValueChange?.(option.value)
+    setOpen(false)
+    setQuery("")
+    buttonRef.current?.focus()
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      setOpen(true)
+    }
+    if (event.key === "Escape") {
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        aria-controls={open ? listboxId : undefined}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className={cn(
+          "flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
+          className
+        )}
+        disabled={disabled || loading}
+        onClick={() => setOpen((state) => !state)}
+        onKeyDown={handleKeyDown}
+        ref={buttonRef}
+        type="button"
+      >
+        <span className={cn("truncate", !selectedOption && "text-muted-foreground")}>
+          {selectedOption?.label ?? placeholder}
+        </span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          {clear && value && !disabled ? (
+            <span
+              aria-label="Clear selection"
+              className="rounded-md p-0.5 hover:text-foreground"
+              onClick={(event) => {
+                event.stopPropagation()
+                onValueChange?.("")
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <XIcon className="size-4" />
+            </span>
+          ) : null}
+          <ChevronDownIcon className="size-4" />
+        </span>
+      </button>
+
+      {open ? (
+        <div
+          className="absolute z-50 mt-1 w-full min-w-52 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+          id={listboxId}
+          role="listbox"
+        >
+          {search ? (
+            <div className="relative mb-1">
+              <SearchIcon className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                aria-label="Search options"
+                className="h-8 w-full rounded-md bg-muted/40 pl-8 pr-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search..."
+                value={query}
+              />
+            </div>
+          ) : null}
+          <div className="max-h-64 overflow-y-auto">
+            {filteredGroups.length ? (
+              filteredGroups.map((group) => (
+                <div key={group.label || "options"}>
+                  {group.label ? (
+                    <p className="px-2 py-1 text-caption font-medium text-muted-foreground">
+                      {group.label}
+                    </p>
+                  ) : null}
+                  {group.options.map((option) => (
+                    <button
+                      aria-selected={option.value === value}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-2 text-sm text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={option.disabled}
+                      key={option.value}
+                      onClick={() => selectOption(option)}
+                      role="option"
+                      type="button"
+                    >
+                      {option.label}
+                      {option.value === value ? <CheckIcon className="size-4 text-primary" /> : null}
+                    </button>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                {emptyText}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+const SelectRoot = SelectPrimitive.Root
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -189,6 +355,7 @@ function SelectScrollDownButton({
 
 export {
   Select,
+  SelectRoot,
   SelectContent,
   SelectGroup,
   SelectItem,

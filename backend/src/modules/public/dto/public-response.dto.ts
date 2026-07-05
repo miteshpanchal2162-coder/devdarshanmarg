@@ -171,6 +171,9 @@ export class PublicMediaResponseDto {
   @ApiProperty()
   id: string;
 
+  @ApiProperty({ example: "/public/media/{id}/file" })
+  url: string;
+
   @ApiProperty()
   filename: string;
 
@@ -181,20 +184,72 @@ export class PublicMediaResponseDto {
   mimeType: string;
 
   @ApiProperty()
-  mediaType: string;
+  extension: string;
 
   @ApiProperty()
-  storagePath: string;
-
-  @ApiPropertyOptional({ nullable: true })
-  altText: string | null;
-
-  @ApiProperty()
-  fileSize: number;
+  size: number;
 
   @ApiPropertyOptional({ nullable: true })
   width: number | null;
 
   @ApiPropertyOptional({ nullable: true })
   height: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  alt: string | null;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  createdAt: Date;
+}
+
+export class PublicSeoRedirectResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  fromPath: string;
+
+  @ApiProperty()
+  toPath: string;
+
+  @ApiProperty()
+  statusCode: number;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+}
+
+export class PublicSeoLandingPageResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  language: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  metaTitle: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  metaDescription: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  content: string | null;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
 }
