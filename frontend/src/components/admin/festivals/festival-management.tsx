@@ -1,14 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CalendarDays, Eye, FileText, ImageIcon, Landmark, Music, Pencil, Plus, SearchCheck, Sparkles, Trash2, Utensils, Video } from "lucide-react";
+import { CalendarDays, CalendarClock, Eye, Landmark, Pencil, Plus, Trash2 } from "lucide-react";
 
+import { ServerPagination } from "@/components/admin/common/server-pagination";
+import { AsyncQueryBoundary } from "@/components/common/async-query-boundary";
+import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { EmptyState, ErrorState } from "@/components/ui/enterprise";
 import { Form, FormActions, FormSection } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { AdminOnly, PermissionGate, RoleBadge } from "@/components/ui/permission";
@@ -16,78 +22,36 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-
-type FestivalStatus = "ACTIVE" | "DRAFT" | "ARCHIVED";
-type FestivalRecord = {
-  id: string;
-  name: string;
-  festivalCode: string;
-  type: string;
-  month: string;
-  status: FestivalStatus;
-  featured: boolean;
-  popular: boolean;
-};
-
-const festivals: FestivalRecord[] = [
-  { id: "fest-001", name: "Maha Shivaratri", festivalCode: "FEST-SHIV-001", type: "Vrat", month: "Phalguna", status: "ACTIVE", featured: true, popular: true },
-  { id: "fest-002", name: "Navratri", festivalCode: "FEST-NAV-002", type: "Utsav", month: "Ashwin", status: "ACTIVE", featured: true, popular: true },
-  { id: "fest-003", name: "Janmashtami", festivalCode: "FEST-JAN-003", type: "Jayanti", month: "Bhadrapada", status: "DRAFT", featured: false, popular: true },
-];
-
-const typeOptions = [
-  { label: "All types", value: "all" },
-  { label: "Vrat", value: "vrat" },
-  { label: "Utsav", value: "utsav" },
-  { label: "Jayanti", value: "jayanti" },
-];
-
-const monthOptions = [
-  { label: "All months", value: "all" },
-  { label: "Phalguna", value: "phalguna" },
-  { label: "Ashwin", value: "ashwin" },
-  { label: "Bhadrapada", value: "bhadrapada" },
-];
+import {
+  useCreateFestival,
+  useDeleteFestival,
+  useFestival,
+  useFestivalDates,
+  useFestivalRegions,
+  useFestivalTempleMaps,
+  useFestivals,
+  useUpdateFestival,
+} from "@/hooks/queries/use-entities";
+import { useListQueryParams } from "@/hooks/use-list-query-params";
+import type { EntityRecord } from "@/services/create-crud-service";
+import { formatDateTime, getBoolean, getString } from "@/utils/record-helpers";
 
 const statusOptions = [
   { label: "All statuses", value: "all" },
   { label: "Active", value: "ACTIVE" },
-  { label: "Draft", value: "DRAFT" },
+  { label: "Inactive", value: "INACTIVE" },
   { label: "Archived", value: "ARCHIVED" },
 ];
 
-const featuredOptions = [
+const booleanFilterOptions = [
   { label: "Any", value: "all" },
-  { label: "Featured", value: "yes" },
-  { label: "Not featured", value: "no" },
+  { label: "Yes", value: "yes" },
+  { label: "No", value: "no" },
 ];
 
-const tabs = [
-  "General",
-  "Dates",
-  "Temples",
-  "Deities",
-  "Rituals",
-  "Puja Vidhi",
-  "Samagri",
-  "Fasting Rules",
-  "Foods",
-  "Katha",
-  "Mantras",
-  "Aartis",
-  "Bhajans",
-  "Gallery",
-  "Videos",
-  "SEO",
-  "Statistics",
-] as const;
-
-function tabValue(label: string) {
-  return label.toLowerCase().replace(/\s+/g, "-");
-}
-
-function FestivalStatusBadge({ status }: { status: FestivalStatus }) {
-  const variant = status === "ACTIVE" ? "success" : status === "DRAFT" ? "warning" : "secondary";
+function FestivalStatusBadge({ status }: { status: string }) {
+  const variant =
+    status === "ACTIVE" ? "success" : status === "INACTIVE" ? "warning" : "secondary";
   return <Badge variant={variant}>{status}</Badge>;
 }
 
@@ -99,115 +63,194 @@ function FestivalImage() {
   );
 }
 
-function FestivalFilters() {
+function FestivalRowActions({ record }: { record: EntityRecord }) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const deleteFestival = useDeleteFestival();
+  const id = getString(record, "id", "");
+  const name = getString(record, "name");
+
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      <Select options={typeOptions} placeholder="Festival Type" />
-      <Select options={monthOptions} placeholder="Month" />
-      <Select options={statusOptions} placeholder="Status" />
-      <Select options={featuredOptions} placeholder="Featured" />
+    <div className="flex flex-wrap gap-1">
+      <Button
+        aria-label={`View ${name}`}
+        render={<Link href={`/admin/festivals/${id}`} />}
+        size="icon-sm"
+        variant="ghost"
+      >
+        <Eye />
+      </Button>
+      <AdminOnly>
+        <Button
+          aria-label={`Edit ${name}`}
+          render={<Link href={`/admin/festivals/${id}/edit`} />}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <Pencil />
+        </Button>
+        <Button
+          aria-label="Delete festival"
+          onClick={() => setDeleteOpen(true)}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <Trash2 />
+        </Button>
+        <ConfirmationDialog
+          action="delete"
+          message={`Delete ${name}? This action updates the database record.`}
+          onConfirm={() => {
+            deleteFestival.mutate(id, { onSuccess: () => setDeleteOpen(false) });
+          }}
+          onOpenChange={setDeleteOpen}
+          open={deleteOpen}
+          title="Delete festival"
+        />
+      </AdminOnly>
     </div>
   );
 }
 
-const columns: ColumnDef<FestivalRecord>[] = [
-  { header: "Image", cell: () => <FestivalImage /> },
-  { accessorKey: "name", header: "Festival Name", cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
-  { accessorKey: "festivalCode", header: "Festival Code" },
-  { accessorKey: "type", header: "Type" },
-  { accessorKey: "month", header: "Month" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <FestivalStatusBadge status={row.original.status} /> },
-  { accessorKey: "featured", header: "Featured", cell: ({ row }) => <Badge variant={row.original.featured ? "success" : "secondary"}>{row.original.featured ? "Yes" : "No"}</Badge> },
-  {
-    id: "actions",
-    header: "Actions",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        <Button aria-label={`View ${row.original.name}`} render={<Link href={`/festivals/${row.original.id}`} />} size="icon-sm" variant="ghost"><Eye /></Button>
-        <AdminOnly>
-          <Button aria-label={`Edit ${row.original.name}`} render={<Link href={`/festivals/${row.original.id}/edit`} />} size="icon-sm" variant="ghost"><Pencil /></Button>
-          <Button aria-label="Preview placeholder" size="icon-sm" type="button" variant="ghost"><SearchCheck /></Button>
-          <Button aria-label="Delete placeholder" size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
-        </AdminOnly>
-      </div>
-    ),
-  },
-];
+function FestivalFilters({ listParams }: { listParams: ReturnType<typeof useListQueryParams> }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <Select
+        onValueChange={(value) => listParams.setStatus(value === "all" ? undefined : value)}
+        options={statusOptions}
+        placeholder="Status"
+        value={listParams.state.status ?? "all"}
+      />
+      <Select
+        onValueChange={(value) =>
+          listParams.setFilter(
+            "isFeatured",
+            value === "yes" ? true : value === "no" ? false : undefined,
+          )
+        }
+        options={booleanFilterOptions}
+        placeholder="Featured"
+        value={
+          listParams.state.filters.isFeatured === true
+            ? "yes"
+            : listParams.state.filters.isFeatured === false
+              ? "no"
+              : "all"
+        }
+      />
+      <Select
+        onValueChange={(value) =>
+          listParams.setFilter(
+            "isPopular",
+            value === "yes" ? true : value === "no" ? false : undefined,
+          )
+        }
+        options={booleanFilterOptions}
+        placeholder="Popular"
+        value={
+          listParams.state.filters.isPopular === true
+            ? "yes"
+            : listParams.state.filters.isPopular === false
+              ? "no"
+              : "all"
+        }
+      />
+    </div>
+  );
+}
 
 export function FestivalListPageContent() {
+  const listParams = useListQueryParams();
+  const { data, isLoading, isError, error, refetch, isFetching } = useFestivals(listParams.params);
+
+  const columns = useMemo<ColumnDef<EntityRecord>[]>(
+    () => [
+      { header: "Image", cell: () => <FestivalImage /> },
+      {
+        accessorKey: "name",
+        header: "Festival Name",
+        cell: ({ row }) => <span className="font-medium">{getString(row.original, "name")}</span>,
+      },
+      {
+        accessorKey: "festivalCode",
+        header: "Festival Code",
+        cell: ({ row }) => getString(row.original, "festivalCode"),
+      },
+      {
+        accessorKey: "festivalType",
+        header: "Type",
+        cell: ({ row }) => getString(row.original, "festivalType"),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <FestivalStatusBadge status={getString(row.original, "status")} />,
+      },
+      {
+        accessorKey: "isFeatured",
+        header: "Featured",
+        cell: ({ row }) => (
+          <Badge variant={getBoolean(row.original, "isFeatured") ? "success" : "secondary"}>
+            {getBoolean(row.original, "isFeatured") ? "Yes" : "No"}
+          </Badge>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => <FestivalRowActions record={row.original} />,
+      },
+    ],
+    [],
+  );
+
+  const rows = data?.items ?? [];
+
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
       <div className="space-y-6">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Module 3</p>
+            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Festivals</p>
             <h1 className="text-3xl font-semibold tracking-tight">Festival Management</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Manage festival records with dummy data and placeholder actions.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Manage festival records from PostgreSQL via the festivals API.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <RoleBadge />
             <AdminOnly>
-              <Button render={<Link href="/admin/festivals/create" />} leftIcon={<Plus />}>Create Festival</Button>
+              <Button render={<Link href="/admin/festivals/create" />} leftIcon={<Plus />}>
+                Create Festival
+              </Button>
             </AdminOnly>
           </div>
         </header>
+
         <DataTable
-          bulkActions={
-            <AdminOnly>
-              <Button size="sm" type="button" variant="destructive">Delete</Button>
-              <Button size="sm" type="button" variant="outline">Feature</Button>
-              <Button size="sm" type="button" variant="outline">Archive</Button>
-            </AdminOnly>
-          }
           columns={columns}
-          data={festivals}
-          exportPlaceholder={() => undefined}
-          filters={<FestivalFilters />}
-          onRefresh={() => undefined}
+          data={rows}
+          emptyState={
+            <EmptyState description="No festivals match your filters." title="No festivals found" />
+          }
+          error={
+            isError ? (
+              <ErrorState
+                description={error?.message ?? "Failed to load festivals."}
+                onRetry={() => void refetch()}
+              />
+            ) : undefined
+          }
+          filters={<FestivalFilters listParams={listParams} />}
+          loading={isLoading}
+          onRefresh={() => refetch()}
+          refreshLoading={isFetching}
           searchPlaceholder="Search festivals..."
         />
+
+        <ServerPagination disabled={isFetching} meta={data?.meta} onPageChange={listParams.setPage} />
       </div>
     </PermissionGate>
-  );
-}
-
-function PlaceholderPanel({ description, icon, title }: { description: string; icon: React.ReactNode; title: string }) {
-  return (
-    <Card className="border-dashed" variant="outlined">
-      <CardContent className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-5">{icon}</span>
-        <div>
-          <p className="font-medium">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function TablePlaceholder({ title }: { title: string }) {
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-border">
-      <table className="w-full min-w-[34rem] text-left text-sm">
-        <caption className="sr-only">{title} placeholder table</caption>
-        <thead className="border-b bg-muted/50 text-caption uppercase tracking-[0.16em] text-muted-foreground">
-          <tr>
-            <th className="p-3" scope="col">Name</th>
-            <th className="p-3" scope="col">Code</th>
-            <th className="p-3" scope="col">Status</th>
-            <th className="p-3 text-right" scope="col">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="p-3 font-medium">{title} sample</td>
-            <td className="p-3">FEST-{title.toUpperCase().slice(0, 4)}-001</td>
-            <td className="p-3"><Badge variant="secondary">Placeholder</Badge></td>
-            <td className="p-3 text-right"><Button size="sm" type="button" variant="outline">Manage</Button></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   );
 }
 
@@ -216,80 +259,296 @@ type FestivalFormValues = {
   name: string;
   slug: string;
   description: string;
+  festivalType: string;
+  status: string;
+  isFeatured: boolean;
+  isPopular: boolean;
+  sortOrder: number;
 };
 
 export function FestivalFormPageContent({ mode }: { mode: "create" | "edit" }) {
-  const existing = festivals[0];
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const festivalId = mode === "edit" ? params.id : "";
+  const { data: existing, isLoading, isError, error, refetch } = useFestival(festivalId, mode === "edit");
+  const createFestival = useCreateFestival();
+  const updateFestival = useUpdateFestival();
+
   const form = useForm<FestivalFormValues>({
-    defaultValues:
-      mode === "edit"
-        ? { festivalCode: existing.festivalCode, name: existing.name, slug: "maha-shivaratri", description: "Festival description placeholder." }
-        : { festivalCode: "", name: "", slug: "", description: "" },
+    values:
+      mode === "edit" && existing
+        ? {
+            festivalCode: getString(existing, "festivalCode"),
+            name: getString(existing, "name"),
+            slug: getString(existing, "slug"),
+            description: getString(existing, "description"),
+            festivalType: getString(existing, "festivalType"),
+            status: getString(existing, "status", "ACTIVE"),
+            isFeatured: getBoolean(existing, "isFeatured"),
+            isPopular: getBoolean(existing, "isPopular"),
+            sortOrder: Number(existing.sortOrder ?? 0),
+          }
+        : {
+            festivalCode: "",
+            name: "",
+            slug: "",
+            description: "",
+            festivalType: "",
+            status: "ACTIVE",
+            isFeatured: false,
+            isPopular: false,
+            sortOrder: 0,
+          },
   });
+
+  async function onSubmit(values: FestivalFormValues) {
+    const payload: Record<string, unknown> = {
+      festivalCode: values.festivalCode || undefined,
+      name: values.name || undefined,
+      slug: values.slug,
+      description: values.description || undefined,
+      festivalType: values.festivalType || undefined,
+      status: values.status,
+      isFeatured: values.isFeatured,
+      isPopular: values.isPopular,
+      sortOrder: values.sortOrder,
+    };
+
+    if (mode === "create") {
+      createFestival.mutate(payload, {
+        onSuccess: (record) => router.push(`/admin/festivals/${getString(record, "id")}`),
+      });
+      return;
+    }
+
+    updateFestival.mutate(
+      { id: festivalId, payload },
+      { onSuccess: () => router.push(`/admin/festivals/${festivalId}`) },
+    );
+  }
 
   return (
     <AdminOnly>
-      <div className="space-y-6">
-        <header>
-          <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Festival Management</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{mode === "create" ? "Create Festival" : "Edit Festival"}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">UI-only festival workflow with reusable placeholders for all sections.</p>
-        </header>
-        <Form {...form} onSubmit={(event) => event.preventDefault()}>
-          <Tabs defaultValue="general">
-            <div className="overflow-x-auto pb-2">
-              <TabsList className="min-w-max" variant="line">
-                {tabs.map((label) => <TabsTrigger key={label} value={tabValue(label)}>{label}</TabsTrigger>)}
-              </TabsList>
-            </div>
+      <AsyncQueryBoundary
+        error={error}
+        isError={mode === "edit" && isError}
+        isLoading={mode === "edit" && isLoading}
+        loadingLabel="Loading festival..."
+        onRetry={() => refetch()}
+      >
+        <div className="space-y-6">
+          <header>
+            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">
+              Festival Management
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              {mode === "create" ? "Create Festival" : "Edit Festival"}
+            </h1>
+          </header>
 
-            <TabsContent value="general">
-              <FormSection columns={2} title="General" description="Core festival information.">
-                <Input label="Festival Code" required {...form.register("festivalCode")} />
-                <Input label="Festival Name" required {...form.register("name")} />
-                <Input label="Slug" required {...form.register("slug")} />
-                <Select options={typeOptions.slice(1)} placeholder="Festival Type" />
-                <Textarea label="Description" required wrapperClassName="md:col-span-2" {...form.register("description")} />
-                <Select options={statusOptions.slice(1)} placeholder="Status" />
-                <Switch label="Featured" description="Feature this festival in prominent areas." />
-                <Switch label="Popular" description="Mark festival as popular." />
-                <Input label="Sort Order" type="number" />
-              </FormSection>
-            </TabsContent>
+          <Form {...form} onSubmit={form.handleSubmit(onSubmit)}>
+            <FormSection columns={2} description="Core festival information." title="General">
+              <Input label="Festival Code" {...form.register("festivalCode")} />
+              <Input label="Festival Name" required {...form.register("name", { required: true })} />
+              <Input label="Slug" required {...form.register("slug", { required: true })} />
+              <Input label="Festival Type" {...form.register("festivalType")} />
+              <Textarea
+                label="Description"
+                wrapperClassName="md:col-span-2"
+                {...form.register("description")}
+              />
+              <div className="grid gap-2">
+                <span className="text-sm font-medium">Status</span>
+                <Select
+                  onValueChange={(value) => form.setValue("status", value, { shouldDirty: true })}
+                  options={statusOptions.slice(1)}
+                  placeholder="Select status"
+                  value={form.watch("status")}
+                />
+              </div>
+              <Input
+                label="Sort Order"
+                type="number"
+                {...form.register("sortOrder", { valueAsNumber: true })}
+              />
+              <Switch
+                checked={form.watch("isFeatured")}
+                description="Feature this festival in prominent areas."
+                label="Featured"
+                onCheckedChange={(checked) =>
+                  form.setValue("isFeatured", checked, { shouldDirty: true })
+                }
+              />
+              <Switch
+                checked={form.watch("isPopular")}
+                description="Mark festival as popular."
+                label="Popular"
+                onCheckedChange={(checked) =>
+                  form.setValue("isPopular", checked, { shouldDirty: true })
+                }
+              />
+            </FormSection>
 
-            {tabs.filter((label) => !["General", "SEO", "Statistics"].includes(label)).map((label) => (
-              <TabsContent key={label} value={tabValue(label)}>
-                <FormSection title={label} description={`${label} reusable table/form placeholder.`} divider={false}>
-                  <TablePlaceholder title={label} />
-                </FormSection>
-              </TabsContent>
-            ))}
-
-            <TabsContent value="seo">
-              <FormSection columns={2} title="SEO" description="Search metadata placeholders.">
-                <Input label="SEO Title" />
-                <Input label="Focus Keyword" />
-                <Textarea label="SEO Description" wrapperClassName="md:col-span-2" />
-                <Select options={[{ label: "Index, Follow", value: "index-follow" }, { label: "Noindex, Nofollow", value: "noindex-nofollow" }]} placeholder="Robots" />
-                <Switch label="Indexed" description="Search index placeholder flag." />
-              </FormSection>
-            </TabsContent>
-            <TabsContent value="statistics">
-              <PlaceholderPanel icon={<SearchCheck />} title="Statistics" description="Read-only festival statistics placeholder." />
-            </TabsContent>
-          </Tabs>
-          <FormActions canReset dirty={form.formState.isDirty} onCancel={() => undefined} onReset={() => form.reset()} sticky submitLabel={mode === "create" ? "Create placeholder" : "Save placeholder"} />
-        </Form>
-      </div>
+            <FormActions
+              canReset
+              dirty={form.formState.isDirty}
+              submitting={createFestival.isPending || updateFestival.isPending}
+              onCancel={() => router.back()}
+              onReset={() => form.reset()}
+              sticky
+              submitLabel={mode === "create" ? "Create Festival" : "Save Changes"}
+            />
+          </Form>
+        </div>
+      </AsyncQueryBoundary>
     </AdminOnly>
   );
 }
 
-function DetailSection({ children, icon, title }: { children: React.ReactNode; icon: React.ReactNode; title: string }) {
+function ReadOnlyTable({
+  caption,
+  columns,
+  rows,
+}: {
+  caption: string;
+  columns: { key: string; header: string }[];
+  rows: EntityRecord[];
+}) {
+  if (!rows.length) {
+    return <p className="text-sm text-muted-foreground">No records found.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-border">
+      <table className="w-full min-w-[34rem] text-left text-sm">
+        <caption className="sr-only">{caption}</caption>
+        <thead className="border-b bg-muted/50 text-caption uppercase tracking-[0.16em] text-muted-foreground">
+          <tr>
+            {columns.map((column) => (
+              <th className="p-3" key={column.key} scope="col">
+                {column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr className="border-b border-border/60 last:border-0" key={getString(row, "id", "")}>
+              {columns.map((column) => (
+                <td className="p-3" key={column.key}>
+                  {column.key === "status" ? (
+                    <FestivalStatusBadge status={getString(row, "status")} />
+                  ) : column.key === "highlight" ? (
+                    getBoolean(row, "highlight") ? "Yes" : "No"
+                  ) : (
+                    getString(row, column.key)
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FestivalRelatedTabs({ festivalId }: { festivalId: string }) {
+  const regionHooks = useFestivalRegions(festivalId);
+  const dateHooks = useFestivalDates(festivalId);
+  const templeMapHooks = useFestivalTempleMaps(festivalId);
+
+  const regionsQuery = regionHooks.useList({ page: 1, limit: 50 });
+  const datesQuery = dateHooks.useList({ page: 1, limit: 50 });
+  const templeMapsQuery = templeMapHooks.useList({ page: 1, limit: 50 });
+
+  return (
+    <Tabs defaultValue="regions">
+      <TabsList variant="line">
+        <TabsTrigger value="regions">Regions</TabsTrigger>
+        <TabsTrigger value="dates">Dates</TabsTrigger>
+        <TabsTrigger value="temples">Temple Maps</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="regions">
+        <AsyncQueryBoundary
+          error={regionsQuery.error}
+          isError={regionsQuery.isError}
+          isLoading={regionsQuery.isLoading}
+          loadingLabel="Loading regions..."
+          onRetry={() => regionsQuery.refetch()}
+        >
+          <ReadOnlyTable
+            caption="Festival regions"
+            columns={[
+              { key: "importance", header: "Importance" },
+              { key: "description", header: "Description" },
+              { key: "status", header: "Status" },
+            ]}
+            rows={regionsQuery.data?.items ?? []}
+          />
+        </AsyncQueryBoundary>
+      </TabsContent>
+
+      <TabsContent value="dates">
+        <AsyncQueryBoundary
+          error={datesQuery.error}
+          isError={datesQuery.isError}
+          isLoading={datesQuery.isLoading}
+          loadingLabel="Loading dates..."
+          onRetry={() => datesQuery.refetch()}
+        >
+          <ReadOnlyTable
+            caption="Festival dates"
+            columns={[
+              { key: "year", header: "Year" },
+              { key: "masa", header: "Masa" },
+              { key: "tithi", header: "Tithi" },
+              { key: "status", header: "Status" },
+            ]}
+            rows={datesQuery.data?.items ?? []}
+          />
+        </AsyncQueryBoundary>
+      </TabsContent>
+
+      <TabsContent value="temples">
+        <AsyncQueryBoundary
+          error={templeMapsQuery.error}
+          isError={templeMapsQuery.isError}
+          isLoading={templeMapsQuery.isLoading}
+          loadingLabel="Loading temple maps..."
+          onRetry={() => templeMapsQuery.refetch()}
+        >
+          <ReadOnlyTable
+            caption="Festival temple maps"
+            columns={[
+              { key: "templeId", header: "Temple ID" },
+              { key: "highlight", header: "Highlight" },
+              { key: "sortOrder", header: "Sort Order" },
+            ]}
+            rows={templeMapsQuery.data?.items ?? []}
+          />
+        </AsyncQueryBoundary>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function DetailSection({
+  children,
+  icon,
+  title,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  title: string;
+}) {
   return (
     <Card className="glass-panel shadow-soft">
       <CardHeader className="flex flex-row items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-4">{icon}</span>
+        <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-4">
+          {icon}
+        </span>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>{children}</CardContent>
@@ -298,60 +557,85 @@ function DetailSection({ children, icon, title }: { children: React.ReactNode; i
 }
 
 export function FestivalDetailsPageContent() {
-  const festival = festivals[0];
+  const params = useParams<{ id: string }>();
+  const { data: festival, isLoading, isError, error, refetch } = useFestival(params.id);
 
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
-      <div className="space-y-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Festival Details</p>
-            <h1 className="text-3xl font-semibold tracking-tight">{festival.name}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{festival.festivalCode} · {festival.month}</p>
-          </div>
-          <AdminOnly>
-            <Button render={<Link href={`/festivals/${festival.id}/edit`} />} leftIcon={<Pencil />}>Edit Festival</Button>
-          </AdminOnly>
-        </header>
-
-        <section className="grid gap-4 lg:grid-cols-[1fr_1.2fr]" aria-label="Festival overview">
-          <Card className="glass-panel shadow-soft">
-            <CardContent className="space-y-4">
-              <FestivalImage />
+      <AsyncQueryBoundary
+        error={error}
+        isError={isError}
+        isLoading={isLoading}
+        loadingLabel="Loading festival..."
+        onRetry={() => refetch()}
+      >
+        {festival ? (
+          <div className="space-y-6">
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">{festival.name}</h2>
-                <p className="text-sm text-muted-foreground">{festival.type}</p>
+                <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">
+                  Festival Details
+                </p>
+                <h1 className="text-3xl font-semibold tracking-tight">{getString(festival, "name")}</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {getString(festival, "festivalCode")} · {getString(festival, "festivalType")}
+                </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <FestivalStatusBadge status={festival.status} />
-                <Badge variant="success">Featured</Badge>
-                <Badge variant="info">Popular</Badge>
-              </div>
-            </CardContent>
-          </Card>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <DetailSection icon={<CalendarDays />} title="Dates"><TablePlaceholder title="Dates" /></DetailSection>
-            <DetailSection icon={<Landmark />} title="Temples"><TablePlaceholder title="Temples" /></DetailSection>
-          </div>
-        </section>
+              <AdminOnly>
+                <Button render={<Link href={`/admin/festivals/${params.id}/edit`} />} leftIcon={<Pencil />}>
+                  Edit Festival
+                </Button>
+              </AdminOnly>
+            </header>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Festival child module placeholders">
-          <DetailSection icon={<Sparkles />} title="Deities"><TablePlaceholder title="Deities" /></DetailSection>
-          <DetailSection icon={<FileText />} title="Rituals"><TablePlaceholder title="Rituals" /></DetailSection>
-          <DetailSection icon={<FileText />} title="Puja Vidhi"><TablePlaceholder title="Puja Vidhi" /></DetailSection>
-          <DetailSection icon={<Utensils />} title="Samagri"><TablePlaceholder title="Samagri" /></DetailSection>
-          <DetailSection icon={<Utensils />} title="Foods"><TablePlaceholder title="Foods" /></DetailSection>
-          <DetailSection icon={<FileText />} title="Fasting Rules"><TablePlaceholder title="Fasting Rules" /></DetailSection>
-          <DetailSection icon={<FileText />} title="Katha"><TablePlaceholder title="Katha" /></DetailSection>
-          <DetailSection icon={<Music />} title="Mantras"><TablePlaceholder title="Mantras" /></DetailSection>
-          <DetailSection icon={<Music />} title="Aartis"><TablePlaceholder title="Aartis" /></DetailSection>
-          <DetailSection icon={<Music />} title="Bhajans"><TablePlaceholder title="Bhajans" /></DetailSection>
-          <DetailSection icon={<ImageIcon />} title="Gallery"><TablePlaceholder title="Gallery" /></DetailSection>
-          <DetailSection icon={<Video />} title="Videos"><TablePlaceholder title="Videos" /></DetailSection>
-          <DetailSection icon={<SearchCheck />} title="SEO"><p className="text-sm text-muted-foreground">SEO metadata placeholder.</p></DetailSection>
-          <DetailSection icon={<SearchCheck />} title="Statistics"><p className="text-sm text-muted-foreground">Statistics placeholder.</p></DetailSection>
-        </section>
-      </div>
+            <section className="grid gap-4 lg:grid-cols-[1fr_1.2fr]" aria-label="Festival overview">
+              <Card className="glass-panel shadow-soft">
+                <CardContent className="space-y-4">
+                  <FestivalImage />
+                  <div>
+                    <h2 className="text-xl font-semibold">{getString(festival, "name")}</h2>
+                    <p className="text-sm text-muted-foreground">{getString(festival, "festivalType")}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <FestivalStatusBadge status={getString(festival, "status")} />
+                    {getBoolean(festival, "isFeatured") ? <Badge variant="success">Featured</Badge> : null}
+                    {getBoolean(festival, "isPopular") ? <Badge variant="info">Popular</Badge> : null}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{getString(festival, "description")}</p>
+                </CardContent>
+              </Card>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <DetailSection icon={<CalendarDays />} title="Overview">
+                  <p className="text-sm text-muted-foreground">Slug: {getString(festival, "slug")}</p>
+                  <p className="text-sm text-muted-foreground">ID: {getString(festival, "id")}</p>
+                </DetailSection>
+                <DetailSection icon={<Landmark />} title="Timestamps">
+                  <p className="text-sm text-muted-foreground">
+                    Created: {formatDateTime(festival.createdAt)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Updated: {formatDateTime(festival.updatedAt)}
+                  </p>
+                </DetailSection>
+              </div>
+            </section>
+
+            <section aria-label="Festival related records">
+              <Card className="glass-panel shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarClock className="size-5 text-primary" />
+                    Related Records
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FestivalRelatedTabs festivalId={params.id} />
+                </CardContent>
+              </Card>
+            </section>
+          </div>
+        ) : null}
+      </AsyncQueryBoundary>
     </PermissionGate>
   );
 }

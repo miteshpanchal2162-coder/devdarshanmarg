@@ -1,177 +1,133 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowRightLeft, Clock, Download, Eye, FileJson, History, UserRound } from "lucide-react";
+import { Clock, Eye, FileJson, UserRound } from "lucide-react";
 
+import { ServerPagination } from "@/components/admin/common/server-pagination";
+import { AsyncQueryBoundary } from "@/components/common/async-query-boundary";
+import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
-import { AdminOnly, PermissionGate, RoleBadge } from "@/components/ui/permission";
-import { Select } from "@/components/ui/select";
+import { EmptyState, ErrorState } from "@/components/ui/enterprise";
 import { Input } from "@/components/ui/input";
-
-type AuditStatus = "SUCCESS" | "FAILED" | "WARNING";
-type AuditLogRecord = {
-  id: string;
-  date: string;
-  user: string;
-  module: string;
-  action: string;
-  entity: string;
-  entityId: string;
-  ipAddress: string;
-  status: AuditStatus;
-};
-
-const auditLogs: AuditLogRecord[] = [
-  {
-    id: "audit-001",
-    date: "04 Jul 2026, 11:32 AM",
-    user: "Admin Name",
-    module: "Temple",
-    action: "Update",
-    entity: "Kashi Vishwanath Temple",
-    entityId: "tmp-001",
-    ipAddress: "103.21.244.12",
-    status: "SUCCESS",
-  },
-  {
-    id: "audit-002",
-    date: "04 Jul 2026, 10:18 AM",
-    user: "Content Manager",
-    module: "Content",
-    action: "Publish",
-    entity: "Navratri Guide",
-    entityId: "cnt-002",
-    ipAddress: "103.21.244.33",
-    status: "SUCCESS",
-  },
-  {
-    id: "audit-003",
-    date: "03 Jul 2026, 08:52 PM",
-    user: "Reviewer",
-    module: "Users",
-    action: "Delete",
-    entity: "Temporary User",
-    entityId: "usr-018",
-    ipAddress: "103.21.244.78",
-    status: "WARNING",
-  },
-  {
-    id: "audit-004",
-    date: "03 Jul 2026, 06:10 PM",
-    user: "Admin Name",
-    module: "Settings",
-    action: "Export",
-    entity: "SEO Settings",
-    entityId: "set-seo",
-    ipAddress: "103.21.244.12",
-    status: "FAILED",
-  },
-];
-
-const userOptions = [
-  { label: "All users", value: "all" },
-  { label: "Admin Name", value: "admin" },
-  { label: "Content Manager", value: "content-manager" },
-  { label: "Reviewer", value: "reviewer" },
-];
-
-const moduleOptions = [
-  { label: "All modules", value: "all" },
-  { label: "Temple", value: "temple" },
-  { label: "Content", value: "content" },
-  { label: "Users", value: "users" },
-  { label: "Settings", value: "settings" },
-];
+import { PermissionGate } from "@/components/ui/permission";
+import { Select } from "@/components/ui/select";
+import { useActivityLog, useActivityLogs } from "@/hooks/queries/use-entities";
+import { useListQueryParams } from "@/hooks/use-list-query-params";
+import type { EntityRecord } from "@/services/create-crud-service";
+import { formatDateTime, getString } from "@/utils/record-helpers";
 
 const actionOptions = [
   { label: "All actions", value: "all" },
-  { label: "Create", value: "create" },
-  { label: "Update", value: "update" },
-  { label: "Delete", value: "delete" },
-  { label: "Publish", value: "publish" },
-  { label: "Export", value: "export" },
+  { label: "Create", value: "CREATE" },
+  { label: "Update", value: "UPDATE" },
+  { label: "Delete", value: "DELETE" },
 ];
 
-const statusOptions = [
-  { label: "All statuses", value: "all" },
-  { label: "Success", value: "SUCCESS" },
-  { label: "Warning", value: "WARNING" },
-  { label: "Failed", value: "FAILED" },
-];
-
-function AuditStatusBadge({ status }: { status: AuditStatus }) {
-  const variant = status === "SUCCESS" ? "success" : status === "WARNING" ? "warning" : "danger";
-  return <Badge variant={variant}>{status}</Badge>;
-}
-
-function AuditFilters() {
+function AuditFilters({ listParams }: { listParams: ReturnType<typeof useListQueryParams> }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-      <Select options={userOptions} placeholder="User" />
-      <Select options={moduleOptions} placeholder="Module" />
-      <Select options={actionOptions} placeholder="Action" />
-      <Input aria-label="Date range filter" placeholder="Date range" type="date" />
-      <Select options={statusOptions} placeholder="Status" />
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <Select
+        onValueChange={(value) => listParams.setFilter("action", value === "all" ? undefined : value)}
+        options={actionOptions}
+        placeholder="Action"
+        value={(listParams.state.filters.action as string) ?? "all"}
+      />
+      <Input
+        aria-label="Entity type filter"
+        onChange={(event) =>
+          listParams.setFilter("entityType", event.target.value.trim() ? event.target.value.trim() : undefined)
+        }
+        placeholder="Entity type"
+        value={(listParams.state.filters.entityType as string) ?? ""}
+      />
+      <Input
+        aria-label="Created from"
+        onChange={(event) => listParams.setFilter("createdFrom", event.target.value || undefined)}
+        type="date"
+        value={(listParams.state.filters.createdFrom as string) ?? ""}
+      />
+      <Input
+        aria-label="Created to"
+        onChange={(event) => listParams.setFilter("createdTo", event.target.value || undefined)}
+        type="date"
+        value={(listParams.state.filters.createdTo as string) ?? ""}
+      />
     </div>
   );
 }
 
-const columns: ColumnDef<AuditLogRecord>[] = [
-  { accessorKey: "date", header: "Date" },
-  { accessorKey: "user", header: "User", cell: ({ row }) => <span className="font-medium">{row.original.user}</span> },
-  { accessorKey: "module", header: "Module" },
-  { accessorKey: "action", header: "Action" },
-  { accessorKey: "entity", header: "Entity" },
-  { accessorKey: "entityId", header: "Entity ID" },
-  { accessorKey: "ipAddress", header: "IP Address" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <AuditStatusBadge status={row.original.status} /> },
-  {
-    id: "actions",
-    header: "Actions",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        <Button aria-label={`View audit ${row.original.id}`} render={<Link href={`/activity-logs/${row.original.id}`} />} size="icon-sm" variant="ghost">
-          <Eye />
-        </Button>
-        <AdminOnly>
-          <Button aria-label="Export audit placeholder" size="icon-sm" type="button" variant="ghost">
-            <Download />
-          </Button>
-        </AdminOnly>
-      </div>
-    ),
-  },
-];
-
 export function ActivityLogsPageContent() {
+  const listParams = useListQueryParams({ sortBy: "createdAt", sortOrder: "desc" });
+  const { data, isLoading, isError, error, refetch, isFetching } = useActivityLogs(listParams.params);
+
+  const columns = useMemo<ColumnDef<EntityRecord>[]>(
+    () => [
+      {
+        accessorKey: "createdAt",
+        header: "Date",
+        cell: ({ row }) => formatDateTime(row.original.createdAt),
+      },
+      {
+        accessorKey: "userId",
+        header: "User ID",
+        cell: ({ row }) => <span className="font-medium">{getString(row.original, "userId")}</span>,
+      },
+      { accessorKey: "action", header: "Action", cell: ({ row }) => getString(row.original, "action") },
+      { accessorKey: "entityType", header: "Entity Type", cell: ({ row }) => getString(row.original, "entityType") },
+      { accessorKey: "entityId", header: "Entity ID", cell: ({ row }) => getString(row.original, "entityId") },
+      { accessorKey: "ipAddress", header: "IP Address", cell: ({ row }) => getString(row.original, "ipAddress") },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const id = getString(row.original, "id", "");
+          return (
+            <Button
+              aria-label={`View activity log ${id}`}
+              render={<Link href={`/admin/activity-logs/${id}`} />}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Eye />
+            </Button>
+          );
+        },
+      },
+    ],
+    [],
+  );
+
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
       <div className="space-y-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Activity & Audit Logs</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Activity Logs</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Audit activity UI with dummy data and export placeholders.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <RoleBadge />
-            <AdminOnly>
-              <Button type="button" variant="outline"><Download />Export Placeholder</Button>
-            </AdminOnly>
-          </div>
+        <header>
+          <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Activity & Audit Logs</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Activity Logs</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Read-only audit trail from PostgreSQL via the activity-logs API.</p>
         </header>
+
         <DataTable
           columns={columns}
-          data={auditLogs}
-          exportPlaceholder={() => undefined}
-          filters={<AuditFilters />}
-          onRefresh={() => undefined}
-          searchPlaceholder="Search audit logs..."
+          data={data?.items ?? []}
+          emptyState={<EmptyState description="No activity logs match your filters." title="No activity logs found" />}
+          error={
+            isError ? (
+              <ErrorState description={error?.message ?? "Failed to load activity logs."} onRetry={() => void refetch()} />
+            ) : undefined
+          }
+          filters={<AuditFilters listParams={listParams} />}
+          loading={isLoading}
+          onRefresh={() => refetch()}
+          refreshLoading={isFetching}
+          searchPlaceholder="Search activity logs..."
         />
+
+        <ServerPagination disabled={isFetching} meta={data?.meta} onPageChange={listParams.setPage} />
       </div>
     </PermissionGate>
   );
@@ -189,61 +145,65 @@ function DetailCard({ children, icon, title }: { children: React.ReactNode; icon
   );
 }
 
-function JsonPlaceholder({ label }: { label: string }) {
+function JsonBlock({ value }: { value: unknown }) {
   return (
     <pre className="overflow-x-auto rounded-2xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-{`{
-  "placeholder": "${label}",
-  "changedBy": "Admin Name",
-  "source": "UI only"
-}`}
+      {JSON.stringify(value ?? {}, null, 2)}
     </pre>
   );
 }
 
 export function AuditDetailsPageContent() {
-  const audit = auditLogs[0];
+  const params = useParams<{ id: string }>();
+  const { data: audit, isLoading, isError, error, refetch } = useActivityLog(params.id);
 
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
-      <div className="space-y-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Audit Details</p>
-            <h1 className="text-3xl font-semibold tracking-tight">{audit.action} · {audit.entity}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{audit.date} · {audit.ipAddress}</p>
+      <AsyncQueryBoundary
+        error={error}
+        isError={isError}
+        isLoading={isLoading}
+        loadingLabel="Loading activity log..."
+        onRetry={() => refetch()}
+      >
+        {audit ? (
+          <div className="space-y-6">
+            <header>
+              <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Audit Details</p>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                {getString(audit, "action")} · {getString(audit, "entityType")}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {formatDateTime(audit.createdAt)} · {getString(audit, "ipAddress")}
+              </p>
+            </header>
+
+            <section className="grid gap-4 lg:grid-cols-3" aria-label="Audit overview">
+              <DetailCard icon={<UserRound />} title="Overview">
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="text-muted-foreground">User ID:</span> {getString(audit, "userId")}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Entity ID:</span> {getString(audit, "entityId")}
+                  </p>
+                  <Badge variant="secondary">{getString(audit, "action")}</Badge>
+                </div>
+              </DetailCard>
+              <DetailCard icon={<Clock />} title="Timestamp">
+                <p className="text-sm text-muted-foreground">{formatDateTime(audit.createdAt)}</p>
+              </DetailCard>
+              <DetailCard icon={<FileJson />} title="Log ID">
+                <p className="text-sm text-muted-foreground">{getString(audit, "id")}</p>
+              </DetailCard>
+            </section>
+
+            <DetailCard icon={<FileJson />} title="Details">
+              <JsonBlock value={audit.details} />
+            </DetailCard>
           </div>
-          <AdminOnly>
-            <Button type="button" variant="outline"><Download />Export Placeholder</Button>
-          </AdminOnly>
-        </header>
-
-        <section className="grid gap-4 lg:grid-cols-3" aria-label="Audit overview">
-          <DetailCard icon={<UserRound />} title="Overview">
-            <div className="space-y-2 text-sm">
-              <p><span className="text-muted-foreground">User:</span> {audit.user}</p>
-              <p><span className="text-muted-foreground">Module:</span> {audit.module}</p>
-              <p><span className="text-muted-foreground">Entity ID:</span> {audit.entityId}</p>
-              <AuditStatusBadge status={audit.status} />
-            </div>
-          </DetailCard>
-          <DetailCard icon={<Clock />} title="Timeline Placeholder">
-            <p className="text-sm text-muted-foreground">Request received, validated, applied, and logged timeline placeholder.</p>
-          </DetailCard>
-          <DetailCard icon={<ArrowRightLeft />} title="JSON Diff Placeholder">
-            <p className="text-sm text-muted-foreground">Visual JSON diff placeholder for changed fields.</p>
-          </DetailCard>
-        </section>
-
-        <section className="grid gap-4 lg:grid-cols-2" aria-label="Audit payload placeholders">
-          <DetailCard icon={<FileJson />} title="Before Placeholder"><JsonPlaceholder label="before" /></DetailCard>
-          <DetailCard icon={<FileJson />} title="After Placeholder"><JsonPlaceholder label="after" /></DetailCard>
-        </section>
-
-        <DetailCard icon={<History />} title="History Placeholder">
-          <p className="text-sm text-muted-foreground">Related audit event history placeholder.</p>
-        </DetailCard>
-      </div>
+        ) : null}
+      </AsyncQueryBoundary>
     </PermissionGate>
   );
 }

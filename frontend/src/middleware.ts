@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { tokenStorageKeys } from "@/constants/env";
 import { publicAuthRoutes, routes } from "@/constants/routes";
 
 const adminPrefix = "/admin";
@@ -11,7 +12,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const accessToken = request.cookies.get("ddm_access_token")?.value;
+  const accessToken = request.cookies.get(tokenStorageKeys.accessToken)?.value;
   const isAuthRoute = publicAuthRoutes.some((route) => pathname.startsWith(route));
 
   if (isAuthRoute) {

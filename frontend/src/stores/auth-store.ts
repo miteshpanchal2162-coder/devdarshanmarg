@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { tokenStorageKeys } from "@/constants/env";
+import { clearAuthCookies, syncAuthCookies } from "@/lib/auth-cookies";
 
 export type UserRole = "ADMIN" | "USER";
 
@@ -12,13 +13,17 @@ export type AuthUser = {
   mobile?: string | null;
   role: UserRole;
   fullName?: string | null;
+  profileImage?: string | null;
+  emailVerified?: boolean;
+  mobileVerified?: boolean;
+  status?: string;
 };
 
 type AuthState = {
   accessToken: string | null;
   refreshToken: string | null;
   user: AuthUser | null;
-  currentRole: UserRole;
+  currentRole: UserRole | null;
   setSession: (input: {
     accessToken: string;
     refreshToken: string;
@@ -34,11 +39,12 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       user: null,
-      currentRole: "ADMIN",
+      currentRole: null,
       setSession: ({ accessToken, refreshToken, user }) => {
         if (typeof window !== "undefined") {
           localStorage.setItem(tokenStorageKeys.accessToken, accessToken);
           localStorage.setItem(tokenStorageKeys.refreshToken, refreshToken);
+          syncAuthCookies(accessToken, refreshToken);
         }
         set({
           accessToken,
@@ -51,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           localStorage.setItem(tokenStorageKeys.accessToken, accessToken);
           localStorage.setItem(tokenStorageKeys.refreshToken, refreshToken);
+          syncAuthCookies(accessToken, refreshToken);
         }
         set({ accessToken, refreshToken });
       },
@@ -58,12 +65,13 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           localStorage.removeItem(tokenStorageKeys.accessToken);
           localStorage.removeItem(tokenStorageKeys.refreshToken);
+          clearAuthCookies();
         }
         set({
           accessToken: null,
           refreshToken: null,
           user: null,
-          currentRole: "ADMIN",
+          currentRole: null,
         });
       },
     }),

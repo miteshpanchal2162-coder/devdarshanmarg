@@ -1,16 +1,31 @@
 import { apiClient, unwrapApiData } from "@/services/api-client";
+import { createCrudService } from "@/services/create-crud-service";
 import type { BaseQueryParams, PaginatedResult } from "@/types/api";
+import { serializeListParams } from "@/utils/query-params";
 
 export type MediaRecord = Record<string, unknown>;
 
+const mediaCrud = createCrudService("/media-library");
+
 export const mediaService = {
+  ...mediaCrud,
+
   async list(params?: BaseQueryParams) {
-    const response = await apiClient.get("/media-library", { params });
+    const response = await apiClient.get("/media-library", { params: serializeListParams(params) });
     return unwrapApiData<PaginatedResult<MediaRecord>>(response.data);
   },
 
-  async getById(id: string) {
-    const response = await apiClient.get(`/media-library/${id}`);
+  async uploadImage(formData: FormData) {
+    const response = await apiClient.post("/media-library/upload/image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return unwrapApiData<MediaRecord>(response.data);
+  },
+
+  async uploadDocument(formData: FormData) {
+    const response = await apiClient.post("/media-library/upload/document", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return unwrapApiData<MediaRecord>(response.data);
   },
 
@@ -19,10 +34,5 @@ export const mediaService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return unwrapApiData<MediaRecord>(response.data);
-  },
-
-  async remove(id: string) {
-    const response = await apiClient.delete(`/media-library/${id}`);
-    return unwrapApiData<unknown>(response.data);
   },
 };

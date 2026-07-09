@@ -4,6 +4,7 @@ export type BaseQueryParams = {
   search?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  status?: string;
   filters?: Record<string, string | number | boolean>;
 };
 

@@ -1,20 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useForm } from "react-hook-form";
-import type { ColumnDef } from "@tanstack/react-table";
 import { Bell, DatabaseBackup, Globe2, ImageIcon, Info, Languages, LockKeyhole, Mail, Palette, SearchCheck, Settings, ShieldCheck, Type } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
-import { Form, FormActions, FormSection } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { AdminOnly, PermissionGate, RoleBadge } from "@/components/ui/permission";
-import { Select } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { ReferenceDataListPageContent } from "@/components/admin/settings/reference-data-management";
+import {
+  contentStatusesConfig,
+  languagesConfig,
+  mediaTypesConfig,
+} from "@/components/admin/settings/reference-data-configs";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/enterprise";
+import { PermissionGate, RoleBadge } from "@/components/ui/permission";
 
 export type SettingsSection =
   | "general"
@@ -45,15 +42,50 @@ const sections: Array<{ label: string; value: SettingsSection; href: string; ico
   { label: "About System", value: "about", href: "/admin/settings/about", icon: <Info /> },
 ];
 
-const statusOptions = [
-  { label: "Active", value: "active" },
-  { label: "Inactive", value: "inactive" },
-];
-
-type SettingsFormValues = {
-  name: string;
-  description: string;
-  email: string;
+const noApiSections: Record<
+  Exclude<SettingsSection, "languages" | "media-types" | "content-types" | "about">,
+  { title: string; description: string; icon: React.ReactNode }
+> = {
+  general: {
+    title: "General Settings",
+    description: "No general settings API endpoint is available yet.",
+    icon: <Settings />,
+  },
+  site: {
+    title: "Site Settings",
+    description: "No site settings API endpoint is available yet.",
+    icon: <Palette />,
+  },
+  seo: {
+    title: "SEO Settings",
+    description: "No site-wide SEO settings API endpoint is available. Use the SEO module for redirects and landing pages.",
+    icon: <SearchCheck />,
+  },
+  localization: {
+    title: "Localization",
+    description: "No localization settings API endpoint is available yet.",
+    icon: <Globe2 />,
+  },
+  notifications: {
+    title: "Notification Settings",
+    description: "Global notification settings are not exposed by the API. Manage per-user preferences from the Notifications center.",
+    icon: <Bell />,
+  },
+  email: {
+    title: "Email Settings",
+    description: "No email/SMTP settings API endpoint is available yet.",
+    icon: <Mail />,
+  },
+  security: {
+    title: "Security Settings",
+    description: "No security settings API endpoint is available yet. RBAC is enforced server-side via JWT role.",
+    icon: <ShieldCheck />,
+  },
+  "backup-maintenance": {
+    title: "Backup & Maintenance",
+    description: "No backup or maintenance API endpoint is available yet.",
+    icon: <DatabaseBackup />,
+  },
 };
 
 function SettingsNav({ active }: { active: SettingsSection }) {
@@ -74,105 +106,13 @@ function SettingsNav({ active }: { active: SettingsSection }) {
   );
 }
 
-function SettingsFormCard({
-  description,
-  icon,
-  title,
-  children,
-}: {
-  description: string;
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const form = useForm<SettingsFormValues>({
-    defaultValues: {
-      name: title,
-      description,
-      email: "admin@devdarshan.in",
-    },
-  });
-
-  return (
-    <Form {...form} onSubmit={(event) => event.preventDefault()}>
-      <FormSection
-        action={<Badge variant="secondary">Dummy Data</Badge>}
-        columns={2}
-        description={description}
-        title={title}
-      >
-        <div className="md:col-span-2">
-          <Card className="border-dashed" variant="outlined">
-            <CardContent className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-5">{icon}</span>
-              <div>
-                <p className="font-medium">{title}</p>
-                <p className="text-sm text-muted-foreground">UI-only settings placeholder. No API or backend connection.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        {children}
-      </FormSection>
-      <FormActions canReset dirty={form.formState.isDirty} onCancel={() => undefined} onReset={() => form.reset()} sticky submitLabel="Save placeholder" />
-    </Form>
-  );
-}
-
-type TableRow = {
-  name: string;
-  code: string;
-  status: string;
-};
-
-const tableRows: TableRow[] = [
-  { name: "English", code: "en", status: "Active" },
-  { name: "Hindi", code: "hi", status: "Active" },
-  { name: "Gujarati", code: "gu", status: "Active" },
-];
-
-const tableColumns: ColumnDef<TableRow>[] = [
-  { accessorKey: "name", header: "Name", cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
-  { accessorKey: "code", header: "Code" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <Badge variant="success">{row.original.status}</Badge> },
-  {
-    id: "actions",
-    header: "Actions",
-    cell: () => (
-      <AdminOnly>
-        <Button size="sm" type="button" variant="outline">Manage</Button>
-      </AdminOnly>
-    ),
-  },
-];
-
-function SettingsTable({ title }: { title: string }) {
-  return (
-    <Card className="glass-panel shadow-soft">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <DataTable
-          columns={tableColumns}
-          data={tableRows}
-          enableRowSelection={false}
-          exportPlaceholder={() => undefined}
-          onRefresh={() => undefined}
-          searchPlaceholder={`Search ${title.toLowerCase()}...`}
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
 function AboutSystem() {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {[
         ["Version", "0.1.0"],
         ["Framework", "Next.js 15"],
-        ["Mode", "UI Only"],
+        ["Backend", "NestJS + PostgreSQL"],
       ].map(([label, value]) => (
         <Card className="glass-panel shadow-soft" key={label}>
           <CardContent>
@@ -185,32 +125,23 @@ function AboutSystem() {
   );
 }
 
-function SectionBody({ section }: { section: SettingsSection }) {
-  if (section === "languages") return <SettingsTable title="Supported Languages" />;
-  if (section === "media-types") return <SettingsTable title="Media Types" />;
-  if (section === "content-types") return <SettingsTable title="Content Types" />;
-  if (section === "about") return <AboutSystem />;
-
-  const config = {
-    general: { title: "General Settings", description: "Application-wide defaults.", icon: <Settings /> },
-    site: { title: "Site Settings", description: "Branding and public site placeholders.", icon: <Palette /> },
-    seo: { title: "SEO Settings", description: "Default metadata and indexing placeholders.", icon: <SearchCheck /> },
-    localization: { title: "Localization", description: "Timezone, locale, and formatting placeholders.", icon: <Globe2 /> },
-    notifications: { title: "Notification Settings", description: "Admin notification preference placeholders.", icon: <Bell /> },
-    email: { title: "Email Settings", description: "Sender and SMTP placeholders.", icon: <Mail /> },
-    security: { title: "Security Settings", description: "Session, password, and policy placeholders.", icon: <ShieldCheck /> },
-    "backup-maintenance": { title: "Backup & Maintenance", description: "Backup, cleanup, and maintenance placeholders.", icon: <DatabaseBackup /> },
-  }[section];
-
+function NoApiSection({ section }: { section: keyof typeof noApiSections }) {
+  const config = noApiSections[section];
   return (
-    <SettingsFormCard description={config.description} icon={config.icon} title={config.title}>
-      <Input label="Setting Name" defaultValue={config.title} />
-      <Select options={statusOptions} placeholder="Status" />
-      <Input label="Contact Email" defaultValue="admin@devdarshan.in" type="email" />
-      <Switch label="Enabled" description="Toggle placeholder for this settings group." defaultChecked />
-      <Textarea label="Description" defaultValue={config.description} wrapperClassName="md:col-span-2" />
-    </SettingsFormCard>
+    <EmptyState
+      description={config.description}
+      icon={config.icon}
+      title={config.title}
+    />
   );
+}
+
+function SectionBody({ section }: { section: SettingsSection }) {
+  if (section === "languages") return <ReferenceDataListPageContent config={languagesConfig} />;
+  if (section === "media-types") return <ReferenceDataListPageContent config={mediaTypesConfig} />;
+  if (section === "content-types") return <ReferenceDataListPageContent config={contentStatusesConfig} />;
+  if (section === "about") return <AboutSystem />;
+  return <NoApiSection section={section} />;
 }
 
 export function SettingsPageContent({ section = "general" }: { section?: SettingsSection }) {
@@ -223,12 +154,11 @@ export function SettingsPageContent({ section = "general" }: { section?: Setting
           <div>
             <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">System Settings</p>
             <h1 className="text-3xl font-semibold tracking-tight">{current.label}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Settings UI with dummy data and placeholder persistence only.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Reference data sections use live APIs. Other settings pages show availability status only.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <RoleBadge />
-            <Badge variant="outline">UI Only</Badge>
-          </div>
+          <RoleBadge />
         </header>
         <SettingsNav active={current.value} />
         <SectionBody section={current.value} />

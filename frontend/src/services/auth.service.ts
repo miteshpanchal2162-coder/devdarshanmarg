@@ -6,32 +6,37 @@ export type LoginPayload = {
   password: string;
 };
 
-export type AuthTokens = {
+export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
+  sessionId?: string;
   user: AuthUser;
 };
 
 export type SendOtpPayload = {
-  identifier: string;
-  purpose?: string;
+  mobile: string;
+  purpose: "LOGIN" | "REGISTER" | "RESET_PASSWORD";
 };
 
 export type VerifyOtpPayload = {
-  identifier: string;
+  mobile: string;
   otp: string;
-  purpose?: string;
+  purpose: "LOGIN" | "REGISTER" | "RESET_PASSWORD";
+};
+
+export type ForgotPasswordPayload = {
+  mobile: string;
 };
 
 export type ResetPasswordPayload = {
   verificationToken: string;
-  password: string;
+  newPassword: string;
 };
 
 export const authService = {
   async login(payload: LoginPayload) {
     const response = await apiClient.post("/auth/login", payload);
-    return unwrapApiData<AuthTokens>(response.data);
+    return unwrapApiData<LoginResponse>(response.data);
   },
 
   async refresh(refreshToken: string) {
@@ -44,8 +49,8 @@ export const authService = {
     return unwrapApiData<unknown>(response.data);
   },
 
-  async me() {
-    const response = await apiClient.get("/auth/me");
+  async profile() {
+    const response = await apiClient.get("/auth/profile");
     return unwrapApiData<AuthUser>(response.data);
   },
 
@@ -59,7 +64,7 @@ export const authService = {
     return unwrapApiData<unknown>(response.data);
   },
 
-  async forgotPassword(payload: SendOtpPayload) {
+  async forgotPassword(payload: ForgotPasswordPayload) {
     const response = await apiClient.post("/auth/forgot-password", payload);
     return unwrapApiData<unknown>(response.data);
   },

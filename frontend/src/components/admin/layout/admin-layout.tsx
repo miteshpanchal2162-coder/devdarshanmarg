@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity, Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, CircleUserRound, FileText, Flower2, ImageIcon, KeyRound, LayoutDashboard, LogOut, Menu, Search, Settings, Shield, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { PageShell } from "@/components/admin/layout/page-shell";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ import {
 import { ThemeModeToggle } from "@/components/ui/theme-mode-toggle";
 import { AppBreadcrumb } from "@/components/ui/enterprise";
 import { siteConfig } from "@/constants/site";
+import { routes } from "@/constants/routes";
+import { useLogoutMutation } from "@/hooks/mutations/use-auth-mutations";
+import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 
@@ -268,23 +272,36 @@ export function NotificationMenu() {
 }
 
 export function ProfileMenu() {
+  const user = useAuthStore((state) => state.user);
+  const logout = useLogoutMutation();
+  const router = useRouter();
+  const displayName = user?.fullName ?? user?.email ?? "Admin";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button className="gap-2" variant="outline" />}>
         <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-primary">
           <CircleUserRound className="size-4" />
         </span>
-        <span className="hidden text-sm sm:inline">Admin</span>
+        <span className="hidden text-sm sm:inline">{displayName}</span>
         <ChevronsUpDown className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
-          <span className="block font-medium text-foreground">Admin Name</span>
-          <span className="mt-1 block"><RoleBadge /></span>
+          <span className="block font-medium text-foreground">{displayName}</span>
+          <span className="mt-1 block"><RoleBadge role={user?.role} /></span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem icon={<Settings />}>Settings placeholder</DropdownMenuItem>
-        <DropdownMenuItem icon={<LogOut />} variant="destructive">Logout placeholder</DropdownMenuItem>
+        <DropdownMenuItem icon={<Settings />} onClick={() => router.push(routes.adminSettings)}>
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          icon={<LogOut />}
+          onClick={() => logout.mutate()}
+          variant="destructive"
+        >
+          {logout.isPending ? "Signing out..." : "Sign out"}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

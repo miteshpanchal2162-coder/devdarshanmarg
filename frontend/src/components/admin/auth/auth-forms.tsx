@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Mail, ShieldCheck, Smartphone } from "lucide-react";
-import { useRef, useState, type ClipboardEvent, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Mail, ShieldCheck, Smartphone } from "lucide-react";
+import { Suspense, useRef, useState, type ClipboardEvent, type FormEvent, type ReactNode } from "react";
+import { useMutation } from "@tanstack/react-query";
 
 import { PageShell } from "@/components/admin/layout/page-shell";
 import { Alert } from "@/components/ui/alert";
@@ -10,8 +12,39 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input, PasswordInput } from "@/components/ui/input";
+import { appToast } from "@/components/ui/sonner";
+import { useLoginMutation } from "@/hooks/mutations/use-auth-mutations";
 import { cn } from "@/lib/utils";
 import { siteConfig } from "@/constants/site";
+import { authService } from "@/services/auth.service";
+import { getApiErrorMessage } from "@/services/api-client";
+
+const AUTH_FLOW_KEY = "ddm_auth_flow";
+
+type AuthFlowState = {
+  mobile: string;
+  purpose: "LOGIN" | "REGISTER" | "RESET_PASSWORD";
+  verificationToken?: string;
+};
+
+function readAuthFlow(): AuthFlowState | null {
+  if (typeof window === "undefined") return null;
+  const raw = sessionStorage.getItem(AUTH_FLOW_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthFlowState;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthFlow(state: AuthFlowState) {
+  sessionStorage.setItem(AUTH_FLOW_KEY, JSON.stringify(state));
+}
+
+function isMobile(value: string) {
+  return /^\+?[0-9]{7,20}$/.test(value.replace(/\s/g, ""));
+}
 
 type AuthShellProps = {
   children: ReactNode;
@@ -54,12 +87,12 @@ function isEmailOrMobile(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /^[6-9]\d{9}$/.test(value);
 }
 
-export function LoginForm() {
+export function LoginFormContent() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const login = useLoginMutation();
 
   const identifierError = submitted && !isEmailOrMobile(identifier) ? "Enter a valid email or mobile number." : "";
   const passwordError = submitted && password.length < 8 ? "Password must be at least 8 characters." : "";
@@ -68,9 +101,9 @@ export function LoginForm() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
-    if (!valid) return;
-    setLoading(true);
-    window.setTimeout(() => setLoading(false), 700);
+    if (!valid || login.isPending) return;
+
+    login.mutate({ identifier: identifier.trim(), password });
   }
 
   return (
@@ -80,13 +113,16 @@ export function LoginForm() {
       title="Sign in"
     >
       <form className="space-y-4" noValidate onSubmit={handleSubmit}>
-        <Alert
-          description="Authentication will be connected in a later step."
-          title="UI flow placeholder"
-          variant={valid && submitted ? "success" : "info"}
-        />
+        {login.isError ? (
+          <Alert
+            description={login.error?.message ?? "Unable to sign in."}
+            title="Sign in failed"
+            variant="destructive"
+          />
+        ) : null}
         <Input
           autoComplete="username"
+          disabled={login.isPending}
           error={identifierError}
           label="Email or mobile"
           leftIcon={<Mail />}
@@ -98,6 +134,7 @@ export function LoginForm() {
         <PasswordInput
           autoComplete="current-password"
           description="Use your admin password."
+          disabled={login.isPending}
           error={passwordError}
           label="Password"
           onChange={(event) => setPassword(event.target.value)}
@@ -107,6 +144,7 @@ export function LoginForm() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Checkbox
             checked={remember}
+            disabled={login.isPending}
             label="Remember me"
             onCheckedChange={(checked) => setRemember(Boolean(checked))}
           />
@@ -114,7 +152,7 @@ export function LoginForm() {
             Forgot password?
           </Link>
         </div>
-        <Button fullWidth loading={loading} type="submit">
+        <Button fullWidth loading={login.isPending} type="submit">
           Sign in
         </Button>
       </form>
@@ -122,10 +160,35 @@ export function LoginForm() {
   );
 }
 
+export function LoginForm() {
+  return (
+    <Suspense fallback={<PageShell centered><div className="text-center text-sm text-muted-foreground">Loading sign in...</div></PageShell>}>
+      <LoginFormContent />
+    </Suspense>
+  );
+}
+
 export function ForgotPasswordForm() {
-  const [identifier, setIdentifier] = useState("");
+  const router = useRouter();
+  const [mobile, setMobile] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const error = submitted && !isEmailOrMobile(identifier) ? "Enter a valid email or mobile number." : "";
+  const error = submitted && !isMobile(mobile) ? "Enter a valid mobile number." : "";
+  const forgotPassword = useMutation({
+    mutationFn: () => authService.forgotPassword({ mobile: mobile.trim() }),
+    onSuccess: () => {
+      writeAuthFlow({ mobile: mobile.trim(), purpose: "RESET_PASSWORD" });
+      appToast.success("OTP sent", "Check your mobile for the reset code.");
+      router.push("/otp-verification");
+    },
+    onError: (err) => appToast.error("Failed to send OTP", getApiErrorMessage(err)),
+  });
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitted(true);
+    if (!isMobile(mobile) || forgotPassword.isPending) return;
+    forgotPassword.mutate();
+  }
 
   return (
     <AuthShell
@@ -133,22 +196,18 @@ export function ForgotPasswordForm() {
       eyebrow="Password recovery"
       title="Forgot password"
     >
-      <form className="space-y-4" noValidate onSubmit={(event) => event.preventDefault()}>
+      <form className="space-y-4" noValidate onSubmit={handleSubmit}>
         <Input
           error={error}
-          label="Email or mobile"
+          label="Mobile"
           leftIcon={<Smartphone />}
-          onChange={(event) => setIdentifier(event.target.value)}
-          placeholder="admin@example.com or 9876543210"
+          onChange={(event) => setMobile(event.target.value)}
+          placeholder="+919876543210"
           required
-          success={submitted && !error ? "OTP placeholder is ready for the next screen." : undefined}
-          value={identifier}
+          value={mobile}
         />
-        <Button fullWidth onClick={() => setSubmitted(true)} type="button">
-          Send OTP placeholder
-        </Button>
-        <Button fullWidth render={<Link href="/otp-verification" />} variant="outline">
-          Continue to OTP
+        <Button fullWidth loading={forgotPassword.isPending} type="submit">
+          Send OTP
         </Button>
       </form>
     </AuthShell>
@@ -156,9 +215,31 @@ export function ForgotPasswordForm() {
 }
 
 export function OtpVerificationForm() {
+  const router = useRouter();
+  const flow = readAuthFlow();
   const [otp, setOtp] = useState(Array<string>(6).fill(""));
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
   const complete = otp.every(Boolean);
+  const verifyOtp = useMutation({
+    mutationFn: () =>
+      authService.verifyOtp({
+        mobile: flow?.mobile ?? "",
+        otp: otp.join(""),
+        purpose: flow?.purpose ?? "RESET_PASSWORD",
+      }),
+    onSuccess: (data) => {
+      const token =
+        data && typeof data === "object" && "verificationToken" in data
+          ? String((data as { verificationToken: string }).verificationToken)
+          : "";
+      if (flow && token) {
+        writeAuthFlow({ ...flow, verificationToken: token });
+      }
+      appToast.success("OTP verified");
+      router.push("/reset-password");
+    },
+    onError: (err) => appToast.error("OTP verification failed", getApiErrorMessage(err)),
+  });
 
   function updateDigit(index: number, value: string) {
     const digit = value.replace(/\D/g, "").slice(-1);
@@ -175,13 +256,22 @@ export function OtpVerificationForm() {
     inputs.current[Math.min(digits.length, 5)]?.focus();
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!complete || !flow?.mobile || verifyOtp.isPending) return;
+    verifyOtp.mutate();
+  }
+
   return (
     <AuthShell
-      description="Enter the 6 digit OTP sent to your email or mobile."
+      description={`Enter the 6 digit OTP sent to ${flow?.mobile ?? "your mobile"}.`}
       eyebrow="OTP verification"
       title="Verify OTP"
     >
-      <form className="space-y-5" noValidate onSubmit={(event) => event.preventDefault()}>
+      {!flow?.mobile ? (
+        <Alert description="Start from forgot password to request an OTP." title="No OTP session" variant="warning" />
+      ) : null}
+      <form className="space-y-5" noValidate onSubmit={handleSubmit}>
         <div aria-label="6 digit OTP" className="grid grid-cols-6 gap-2" role="group">
           {otp.map((digit, index) => (
             <input
@@ -202,10 +292,7 @@ export function OtpVerificationForm() {
             />
           ))}
         </div>
-        <p className="text-center text-sm text-muted-foreground">
-          Resend OTP placeholder available in 00:30
-        </p>
-        <Button fullWidth disabled={!complete} render={<Link href="/reset-password" />}>
+        <Button disabled={!complete || !flow?.mobile} fullWidth loading={verifyOtp.isPending} type="submit">
           Verify and continue
         </Button>
       </form>
@@ -223,10 +310,31 @@ function passwordStrength(password: string) {
 }
 
 export function ResetPasswordForm() {
+  const router = useRouter();
+  const flow = readAuthFlow();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const strength = passwordStrength(password);
   const mismatch = confirmPassword && password !== confirmPassword;
+  const resetPassword = useMutation({
+    mutationFn: () =>
+      authService.resetPassword({
+        verificationToken: flow?.verificationToken ?? "",
+        newPassword: password,
+      }),
+    onSuccess: () => {
+      sessionStorage.removeItem(AUTH_FLOW_KEY);
+      appToast.success("Password reset successfully");
+      router.push("/login");
+    },
+    onError: (err) => appToast.error("Password reset failed", getApiErrorMessage(err)),
+  });
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!password || mismatch || strength < 2 || !flow?.verificationToken || resetPassword.isPending) return;
+    resetPassword.mutate();
+  }
 
   return (
     <AuthShell
@@ -234,7 +342,10 @@ export function ResetPasswordForm() {
       eyebrow="Reset credentials"
       title="Reset password"
     >
-      <form className="space-y-4" noValidate onSubmit={(event) => event.preventDefault()}>
+      {!flow?.verificationToken ? (
+        <Alert description="Verify OTP before resetting your password." title="Verification required" variant="warning" />
+      ) : null}
+      <form className="space-y-4" noValidate onSubmit={handleSubmit}>
         <PasswordInput
           autoComplete="new-password"
           description="Use 8+ characters with uppercase, number, and symbol."
@@ -260,14 +371,13 @@ export function ResetPasswordForm() {
           required
           value={confirmPassword}
         />
-        <Alert
-          description="Password reset submission is a UI placeholder only."
-          icon={<CheckCircle2 />}
-          title="Ready for integration"
-          variant="success"
-        />
-        <Button fullWidth disabled={!password || mismatch || strength < 2} type="button">
-          Reset password placeholder
+        <Button
+          disabled={!password || mismatch || strength < 2 || !flow?.verificationToken}
+          fullWidth
+          loading={resetPassword.isPending}
+          type="submit"
+        >
+          Reset password
         </Button>
         <Button fullWidth render={<Link href="/login" />} variant="outline">
           Back to sign in

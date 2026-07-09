@@ -1,118 +1,109 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Archive, Download, Eye, FileAudio, FileText, Folder, Grid2X2, History, ImageIcon, Move, Plus, Replace, SearchCheck, Table2, Trash2, Upload, Video } from "lucide-react";
+import {
+  Eye,
+  FileAudio,
+  FileText,
+  Grid2X2,
+  ImageIcon,
+  Table2,
+  Trash2,
+  Upload,
+  Video,
+} from "lucide-react";
 
+import { ServerPagination } from "@/components/admin/common/server-pagination";
+import { AsyncQueryBoundary } from "@/components/common/async-query-boundary";
+import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { DataTable } from "@/components/ui/data-table";
+import { EmptyState, ErrorState } from "@/components/ui/enterprise";
 import { Form, FormActions, FormSection } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { AdminOnly, PermissionGate, RoleBadge } from "@/components/ui/permission";
+import { AdminOnly, PermissionGate } from "@/components/ui/permission";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { useUploadMedia } from "@/hooks/mutations/use-media-mutations";
+import { useDeleteMediaItem, useMediaItem, useMediaItems } from "@/hooks/queries/use-entities";
+import { useListQueryParams } from "@/hooks/use-list-query-params";
+import type { EntityRecord } from "@/services/create-crud-service";
+import { formatDateTime, getNumber, getString } from "@/utils/record-helpers";
 
-type MediaStatus = "ACTIVE" | "ARCHIVED" | "DRAFT";
-type MediaType = "Image" | "Video" | "Audio" | "Document";
-type MediaRecord = {
-  id: string;
-  title: string;
-  mediaCode: string;
-  type: MediaType;
-  size: string;
-  language: string;
-  uploadedBy: string;
-  createdDate: string;
-  status: MediaStatus;
-};
-
-const mediaItems: MediaRecord[] = [
-  { id: "med-001", title: "Kashi Temple Hero", mediaCode: "MED-IMG-001", type: "Image", size: "1.8 MB", language: "English", uploadedBy: "Admin Name", createdDate: "01 Jul 2026", status: "ACTIVE" },
-  { id: "med-002", title: "Morning Aarti Audio", mediaCode: "MED-AUD-002", type: "Audio", size: "8.4 MB", language: "Hindi", uploadedBy: "Content Team", createdDate: "28 Jun 2026", status: "ACTIVE" },
-  { id: "med-003", title: "Festival Guide PDF", mediaCode: "MED-DOC-003", type: "Document", size: "2.1 MB", language: "Gujarati", uploadedBy: "Reviewer", createdDate: "20 Jun 2026", status: "ARCHIVED" },
-  { id: "med-004", title: "Temple Walkthrough", mediaCode: "MED-VID-004", type: "Video", size: "48 MB", language: "English", uploadedBy: "Admin Name", createdDate: "12 Jun 2026", status: "DRAFT" },
-];
-
-const typeOptions = [
+const mediaTypeOptions = [
   { label: "All media", value: "all" },
   { label: "Image", value: "image" },
   { label: "Video", value: "video" },
-  { label: "Audio", value: "audio" },
   { label: "Document", value: "document" },
 ];
 
-const languageOptions = [
-  { label: "All languages", value: "all" },
-  { label: "English", value: "en" },
-  { label: "Hindi", value: "hi" },
-  { label: "Gujarati", value: "gu" },
+const folderOptions = [
+  { label: "Temples", value: "temples" },
+  { label: "Festivals", value: "festivals" },
+  { label: "Deities", value: "deities" },
+  { label: "Contents", value: "contents" },
+  { label: "Panchang", value: "panchang" },
+  { label: "Users", value: "users" },
+  { label: "Temp", value: "temp" },
 ];
 
-const statusOptions = [
-  { label: "All statuses", value: "all" },
-  { label: "Active", value: "ACTIVE" },
-  { label: "Archived", value: "ARCHIVED" },
-  { label: "Draft", value: "DRAFT" },
-];
+function formatFileSize(bytes: number) {
+  if (!bytes) return "—";
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
 
-const uploaderOptions = [
-  { label: "All uploaders", value: "all" },
-  { label: "Admin Name", value: "admin" },
-  { label: "Content Team", value: "content-team" },
-  { label: "Reviewer", value: "reviewer" },
-];
+function mediaTypeIcon(type: string) {
+  switch (type) {
+    case "image":
+      return <ImageIcon />;
+    case "video":
+      return <Video />;
+    case "document":
+      return <FileText />;
+    default:
+      return <FileAudio />;
+  }
+}
 
-function MediaIcon({ type }: { type: MediaType }) {
-  const icon = {
-    Image: <ImageIcon />,
-    Video: <Video />,
-    Audio: <FileAudio />,
-    Document: <FileText />,
-  }[type];
-
+function MediaIcon({ type }: { type: string }) {
   return (
     <span className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-5">
-      {icon}
+      {mediaTypeIcon(type)}
     </span>
   );
 }
 
-function MediaStatusBadge({ status }: { status: MediaStatus }) {
-  const variant = status === "ACTIVE" ? "success" : status === "ARCHIVED" ? "secondary" : "warning";
-  return <Badge variant={variant}>{status}</Badge>;
-}
-
-function MediaFilters() {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-      <Select options={typeOptions} placeholder="Media Type" />
-      <Select options={languageOptions} placeholder="Language" />
-      <Select options={statusOptions} placeholder="Status" />
-      <Input aria-label="Date filter" placeholder="Date" type="date" />
-      <Select options={uploaderOptions} placeholder="Uploader" />
-    </div>
-  );
-}
-
-function MediaActions({ item }: { item: MediaRecord }) {
+function MediaRowActions({ record }: { record: EntityRecord }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const deleteMedia = useDeleteMediaItem();
+  const id = getString(record, "id", "");
+  const name = getString(record, "originalName");
 
   return (
     <div className="flex flex-wrap gap-1">
-      <Button aria-label={`View ${item.title}`} render={<Link href={`/media/${item.id}`} />} size="icon-sm" variant="ghost"><Eye /></Button>
+      <Button aria-label={`View ${name}`} render={<Link href={`/admin/media/${id}`} />} size="icon-sm" variant="ghost">
+        <Eye />
+      </Button>
       <AdminOnly>
-        <Button aria-label="Download placeholder" size="icon-sm" type="button" variant="ghost"><Download /></Button>
-        <Button aria-label="Replace placeholder" size="icon-sm" type="button" variant="ghost"><Replace /></Button>
-        <Button aria-label="Delete placeholder" onClick={() => setDeleteOpen(true)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
+        <Button aria-label="Delete media" onClick={() => setDeleteOpen(true)} size="icon-sm" type="button" variant="ghost">
+          <Trash2 />
+        </Button>
         <ConfirmationDialog
           action="delete"
-          message="Delete media placeholder only. No file will be changed."
-          onConfirm={() => setDeleteOpen(false)}
+          message={`Delete ${name}? The file will be removed from storage.`}
+          onConfirm={() => deleteMedia.mutate(id, { onSuccess: () => setDeleteOpen(false) })}
           onOpenChange={setDeleteOpen}
           open={deleteOpen}
           title="Delete media"
@@ -122,45 +113,90 @@ function MediaActions({ item }: { item: MediaRecord }) {
   );
 }
 
-const columns: ColumnDef<MediaRecord>[] = [
-  { header: "Thumbnail", cell: ({ row }) => <MediaIcon type={row.original.type} /> },
-  { accessorKey: "title", header: "Title", cell: ({ row }) => <span className="font-medium">{row.original.title}</span> },
-  { accessorKey: "mediaCode", header: "Media Code" },
-  { accessorKey: "type", header: "Type" },
-  { accessorKey: "size", header: "Size" },
-  { accessorKey: "language", header: "Language" },
-  { accessorKey: "uploadedBy", header: "Uploaded By" },
-  { accessorKey: "createdDate", header: "Created Date" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <MediaStatusBadge status={row.original.status} /> },
-  { id: "actions", header: "Actions", cell: ({ row }) => <MediaActions item={row.original} /> },
-];
+function MediaFilters({
+  listParams,
+}: {
+  listParams: ReturnType<typeof useListQueryParams>;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <Select
+        onValueChange={(value) => listParams.setFilter("mediaType", value === "all" ? undefined : value)}
+        options={mediaTypeOptions}
+        placeholder="Media Type"
+        value={(listParams.state.filters.mediaType as string) ?? "all"}
+      />
+    </div>
+  );
+}
 
-function MediaGrid() {
+function MediaGrid({ items }: { items: EntityRecord[] }) {
+  if (!items.length) {
+    return <EmptyState description="No media items match your filters." title="No media found" />;
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Media grid">
-      {mediaItems.map((item) => (
-        <Card hover key={item.id} variant="elevated">
-          <CardContent className="space-y-4">
-            <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20">
-              <MediaIcon type={item.type} />
-            </div>
-            <div>
-              <p className="font-medium">{item.title}</p>
-              <p className="text-sm text-muted-foreground">{item.mediaCode} · {item.size}</p>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <MediaStatusBadge status={item.status} />
-              <MediaActions item={item} />
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {items.map((item) => {
+        const id = getString(item, "id", "");
+        const name = getString(item, "originalName");
+        const type = getString(item, "mediaType", "document");
+        return (
+          <Card hover key={id} variant="elevated">
+            <CardContent className="space-y-4">
+              <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20">
+                <MediaIcon type={type} />
+              </div>
+              <div>
+                <p className="font-medium">{name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {getString(item, "mimeType")} · {formatFileSize(getNumber(item, "fileSize"))}
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="secondary">{type}</Badge>
+                <MediaRowActions record={item} />
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
 
 export function MediaLibraryPageContent() {
   const [view, setView] = useState<"grid" | "table">("grid");
+  const listParams = useListQueryParams();
+  const { data, isLoading, isError, error, refetch, isFetching } = useMediaItems(listParams.params);
+
+  const columns = useMemo<ColumnDef<EntityRecord>[]>(
+    () => [
+      { header: "Preview", cell: ({ row }) => <MediaIcon type={getString(row.original, "mediaType", "document")} /> },
+      {
+        accessorKey: "originalName",
+        header: "Name",
+        cell: ({ row }) => <span className="font-medium">{getString(row.original, "originalName")}</span>,
+      },
+      { accessorKey: "filename", header: "Filename", cell: ({ row }) => getString(row.original, "filename") },
+      { accessorKey: "mediaType", header: "Type", cell: ({ row }) => getString(row.original, "mediaType") },
+      {
+        accessorKey: "fileSize",
+        header: "Size",
+        cell: ({ row }) => formatFileSize(getNumber(row.original, "fileSize")),
+      },
+      { accessorKey: "mimeType", header: "MIME Type", cell: ({ row }) => getString(row.original, "mimeType") },
+      {
+        accessorKey: "createdAt",
+        header: "Uploaded",
+        cell: ({ row }) => formatDateTime(row.original.createdAt),
+      },
+      { id: "actions", header: "Actions", cell: ({ row }) => <MediaRowActions record={row.original} /> },
+    ],
+    [],
+  );
+
+  const rows = data?.items ?? [];
 
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
@@ -169,23 +205,40 @@ export function MediaLibraryPageContent() {
           <div>
             <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Media Library</p>
             <h1 className="text-3xl font-semibold tracking-tight">Enterprise Media Library</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Manage media assets with dummy data and placeholder actions.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Manage media assets from PostgreSQL via the media-library API.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <RoleBadge />
-            <AdminOnly>
-              <Button render={<Link href="/admin/media/upload" />} leftIcon={<Upload />}>Upload Media</Button>
-            </AdminOnly>
-          </div>
+          <AdminOnly>
+            <Button render={<Link href="/admin/media/upload" />} leftIcon={<Upload />}>
+              Upload Media
+            </Button>
+          </AdminOnly>
         </header>
 
         <Card className="glass-panel shadow-soft">
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <MediaFilters />
+              <MediaFilters listParams={listParams} />
               <div className="flex gap-2" role="toolbar" aria-label="Media view switcher">
-                <Button aria-pressed={view === "grid"} onClick={() => setView("grid")} size="sm" type="button" variant={view === "grid" ? "primary" : "outline"}><Grid2X2 />Grid</Button>
-                <Button aria-pressed={view === "table"} onClick={() => setView("table")} size="sm" type="button" variant={view === "table" ? "primary" : "outline"}><Table2 />Table</Button>
+                <Button
+                  aria-pressed={view === "grid"}
+                  onClick={() => setView("grid")}
+                  size="sm"
+                  type="button"
+                  variant={view === "grid" ? "primary" : "outline"}
+                >
+                  <Grid2X2 />
+                  Grid
+                </Button>
+                <Button
+                  aria-pressed={view === "table"}
+                  onClick={() => setView("table")}
+                  size="sm"
+                  type="button"
+                  variant={view === "table" ? "primary" : "outline"}
+                >
+                  <Table2 />
+                  Table
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -193,33 +246,34 @@ export function MediaLibraryPageContent() {
 
         {view === "grid" ? (
           <>
-            <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Bulk media actions">
-              <Button size="sm" type="button" variant="destructive"><Trash2 />Delete</Button>
-              <Button size="sm" type="button" variant="outline"><Archive />Archive</Button>
-              <Button size="sm" type="button" variant="outline"><Download />Download</Button>
-              <Button size="sm" type="button" variant="outline"><Move />Move</Button>
-              <Button size="sm" type="button" variant="outline"><Replace />Replace Placeholder</Button>
-            </div>
-            <MediaGrid />
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading media...</p>
+            ) : isError ? (
+              <ErrorState description={error?.message ?? "Failed to load media."} onRetry={() => void refetch()} />
+            ) : (
+              <MediaGrid items={rows} />
+            )}
+            <ServerPagination disabled={isFetching} meta={data?.meta} onPageChange={listParams.setPage} />
           </>
         ) : (
-          <DataTable
-            bulkActions={
-              <AdminOnly>
-                <Button size="sm" type="button" variant="destructive">Delete</Button>
-                <Button size="sm" type="button" variant="outline">Archive</Button>
-                <Button size="sm" type="button" variant="outline">Download</Button>
-                <Button size="sm" type="button" variant="outline">Move</Button>
-                <Button size="sm" type="button" variant="outline">Replace</Button>
-              </AdminOnly>
-            }
-            columns={columns}
-            data={mediaItems}
-            exportPlaceholder={() => undefined}
-            filters={<MediaFilters />}
-            onRefresh={() => undefined}
-            searchPlaceholder="Search media..."
-          />
+          <>
+            <DataTable
+              columns={columns}
+              data={rows}
+              emptyState={<EmptyState description="No media items match your filters." title="No media found" />}
+              error={
+                isError ? (
+                  <ErrorState description={error?.message ?? "Failed to load media."} onRetry={() => void refetch()} />
+                ) : undefined
+              }
+              filters={<MediaFilters listParams={listParams} />}
+              loading={isLoading}
+              onRefresh={() => refetch()}
+              refreshLoading={isFetching}
+              searchPlaceholder="Search media..."
+            />
+            <ServerPagination disabled={isFetching} meta={data?.meta} onPageChange={listParams.setPage} />
+          </>
         )}
       </div>
     </PermissionGate>
@@ -227,27 +281,63 @@ export function MediaLibraryPageContent() {
 }
 
 type UploadFormValues = {
-  title: string;
-  mediaCode: string;
-  description: string;
+  folder: string;
+  altText: string;
 };
 
-function UploadPlaceholder({ description, icon, title }: { description: string; icon: React.ReactNode; title: string }) {
-  return (
-    <Card className="border-dashed" variant="outlined">
-      <CardContent className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary [&_svg]:size-5">{icon}</span>
-        <div>
-          <p className="font-medium">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
+function resolveUploadKind(file: File): "image" | "document" | "any" {
+  if (file.type.startsWith("image/")) return "image";
+  if (
+    file.type.startsWith("application/") ||
+    file.type.includes("pdf") ||
+    file.type.includes("document")
+  ) {
+    return "document";
+  }
+  return "any";
 }
 
 export function UploadMediaPageContent() {
-  const form = useForm<UploadFormValues>({ defaultValues: { title: "", mediaCode: "", description: "" } });
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const uploadMedia = useUploadMedia();
+
+  const form = useForm<UploadFormValues>({
+    defaultValues: { folder: "contents", altText: "" },
+  });
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedFile]);
+
+  function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedFile(file);
+  }
+
+  async function onSubmit(values: UploadFormValues) {
+    if (!selectedFile) return;
+
+    uploadMedia.mutate(
+      {
+        file: selectedFile,
+        folder: values.folder,
+        altText: values.altText || undefined,
+        kind: resolveUploadKind(selectedFile),
+      },
+      {
+        onSuccess: (record) => router.push(`/admin/media/${getString(record, "id")}`),
+      },
+    );
+  }
 
   return (
     <AdminOnly>
@@ -255,23 +345,70 @@ export function UploadMediaPageContent() {
         <header>
           <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Media Library</p>
           <h1 className="text-3xl font-semibold tracking-tight">Upload Media</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Upload workflow placeholders only. No files are stored.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Upload files to the media library with live preview.</p>
         </header>
-        <Form {...form} onSubmit={(event) => event.preventDefault()}>
-          <FormSection columns={2} title="Upload Details" description="Media metadata and upload placeholders.">
-            <Input label="Title" required {...form.register("title")} />
-            <Input label="Media Code" required {...form.register("mediaCode")} />
-            <Select options={typeOptions.slice(1)} placeholder="Media Type" />
-            <Select options={languageOptions.slice(1)} placeholder="Language" />
-            <Textarea label="Description" wrapperClassName="md:col-span-2" {...form.register("description")} />
+
+        <Form {...form} onSubmit={form.handleSubmit(onSubmit)}>
+          <FormSection columns={2} description="Select a file and storage folder." title="Upload Details">
+            <div className="grid gap-2 md:col-span-2">
+              <span className="text-sm font-medium">File</span>
+              <Input
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"
+                onChange={onFileChange}
+                ref={fileInputRef}
+                type="file"
+              />
+              {selectedFile ? (
+                <p className="text-sm text-muted-foreground">
+                  {selectedFile.name} · {formatFileSize(selectedFile.size)}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">Folder</span>
+              <Select
+                onValueChange={(value) => form.setValue("folder", value, { shouldDirty: true })}
+                options={folderOptions}
+                placeholder="Select folder"
+                value={form.watch("folder")}
+              />
+            </div>
+            <Input label="Alt Text" {...form.register("altText")} />
+            <div className="md:col-span-2">
+              <Card className="border-dashed" variant="outlined">
+                <CardContent className="flex min-h-48 items-center justify-center">
+                  {previewUrl && selectedFile?.type.startsWith("image/") ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt={form.watch("altText") || selectedFile.name} className="max-h-64 rounded-xl object-contain" src={previewUrl} />
+                  ) : selectedFile ? (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <MediaIcon type={resolveUploadKind(selectedFile) === "image" ? "image" : "document"} />
+                      <p className="text-sm">{selectedFile.name}</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Upload className="size-8" />
+                      <p className="text-sm">Choose a file to preview</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </FormSection>
-          <FormSection columns={2} title="Upload Placeholders" description="Single, multiple, drag & drop, and folder placeholders.">
-            <UploadPlaceholder icon={<Upload />} title="Single Upload Placeholder" description="Single asset upload UI placeholder." />
-            <UploadPlaceholder icon={<Plus />} title="Multiple Upload Placeholder" description="Multiple asset upload UI placeholder." />
-            <UploadPlaceholder icon={<Move />} title="Drag & Drop Placeholder" description="Drop zone placeholder for future uploads." />
-            <UploadPlaceholder icon={<Folder />} title="Folder Placeholder" description="Folder selection placeholder." />
-          </FormSection>
-          <FormActions canReset dirty={form.formState.isDirty} onCancel={() => undefined} onReset={() => form.reset()} sticky submitLabel="Upload placeholder" />
+
+          <FormActions
+            canReset
+            dirty={Boolean(selectedFile) || form.formState.isDirty}
+            submitting={uploadMedia.isPending}
+            onCancel={() => router.push("/admin/media")}
+            onReset={() => {
+              form.reset();
+              setSelectedFile(null);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            sticky
+            submitLabel="Upload Media"
+          />
         </Form>
       </div>
     </AdminOnly>
@@ -291,41 +428,60 @@ function DetailCard({ children, icon, title }: { children: React.ReactNode; icon
 }
 
 export function MediaDetailsPageContent() {
-  const item = mediaItems[0];
+  const params = useParams<{ id: string }>();
+  const { data: item, isLoading, isError, error, refetch } = useMediaItem(params.id);
 
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
-      <div className="space-y-6">
-        <header>
-          <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Media Details</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{item.title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{item.mediaCode} · {item.type}</p>
-        </header>
-        <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]" aria-label="Media preview and metadata">
-          <Card className="glass-panel shadow-soft">
-            <CardContent>
-              <div className="flex aspect-video items-center justify-center rounded-3xl border border-dashed border-border bg-muted/20">
-                <MediaIcon type={item.type} />
-              </div>
-            </CardContent>
-          </Card>
-          <DetailCard icon={<FileText />} title="Metadata">
-            <div className="grid gap-3 text-sm">
-              <p><span className="text-muted-foreground">Size:</span> {item.size}</p>
-              <p><span className="text-muted-foreground">Language:</span> {item.language}</p>
-              <p><span className="text-muted-foreground">Uploaded By:</span> {item.uploadedBy}</p>
-              <p><span className="text-muted-foreground">Created:</span> {item.createdDate}</p>
-              <MediaStatusBadge status={item.status} />
-            </div>
-          </DetailCard>
-        </section>
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Media operational placeholders">
-          <DetailCard icon={<SearchCheck />} title="SEO"><p className="text-sm text-muted-foreground">SEO metadata placeholder.</p></DetailCard>
-          <DetailCard icon={<Eye />} title="Usage Placeholder"><p className="text-sm text-muted-foreground">Content and entity usage placeholder.</p></DetailCard>
-          <DetailCard icon={<Replace />} title="Versions Placeholder"><p className="text-sm text-muted-foreground">Media version history placeholder.</p></DetailCard>
-          <DetailCard icon={<History />} title="History Placeholder"><p className="text-sm text-muted-foreground">Audit history placeholder.</p></DetailCard>
-        </section>
-      </div>
+      <AsyncQueryBoundary
+        error={error}
+        isError={isError}
+        isLoading={isLoading}
+        loadingLabel="Loading media..."
+        onRetry={() => refetch()}
+      >
+        {item ? (
+          <div className="space-y-6">
+            <header>
+              <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Media Details</p>
+              <h1 className="text-3xl font-semibold tracking-tight">{getString(item, "originalName")}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {getString(item, "mimeType")} · {getString(item, "mediaType")}
+              </p>
+            </header>
+
+            <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]" aria-label="Media preview and metadata">
+              <Card className="glass-panel shadow-soft">
+                <CardContent>
+                  <div className="flex aspect-video items-center justify-center rounded-3xl border border-dashed border-border bg-muted/20">
+                    <MediaIcon type={getString(item, "mediaType", "document")} />
+                  </div>
+                </CardContent>
+              </Card>
+              <DetailCard icon={<FileText />} title="Metadata">
+                <div className="grid gap-3 text-sm">
+                  <p>
+                    <span className="text-muted-foreground">Filename:</span> {getString(item, "filename")}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Size:</span> {formatFileSize(getNumber(item, "fileSize"))}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Storage Path:</span> {getString(item, "storagePath")}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Alt Text:</span> {getString(item, "altText")}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Uploaded:</span> {formatDateTime(item.createdAt)}
+                  </p>
+                  <Badge variant="secondary">{getString(item, "mediaType")}</Badge>
+                </div>
+              </DetailCard>
+            </section>
+          </div>
+        ) : null}
+      </AsyncQueryBoundary>
     </PermissionGate>
   );
 }

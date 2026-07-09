@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Devanagari, Noto_Sans_Gujarati } from "next/font/google";
 import { MandalaBackground } from "@/components/admin/layout/mandala-background";
 import { AppProviders } from "@/providers/app-providers";
-import { siteConfig } from "@/constants/site";
+import { publicSiteConfig } from "@/constants/public-site";
+import { buildPublicMetadata } from "@/lib/seo/metadata";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,11 +27,15 @@ const notoDevanagari = Noto_Sans_Devanagari({
 });
 
 export const metadata: Metadata = {
+  ...buildPublicMetadata({
+    title: publicSiteConfig.name,
+    description: publicSiteConfig.description,
+    path: "/",
+  }),
   title: {
-    default: siteConfig.name,
-    template: `%s | ${siteConfig.shortName}`,
+    default: publicSiteConfig.name,
+    template: `%s | ${publicSiteConfig.name}`,
   },
-  description: siteConfig.description,
 };
 
 export default function RootLayout({

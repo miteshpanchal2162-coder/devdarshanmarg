@@ -1,205 +1,143 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useParams } from "next/navigation";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Archive, Bell, Clock, Eye, History, Mail, MessageSquare, RefreshCw, Send, Smartphone, Trash2, Users } from "lucide-react";
+import { Bell, Eye, Mail, Send, Users } from "lucide-react";
 
+import { ServerPagination } from "@/components/admin/common/server-pagination";
+import { AsyncQueryBoundary } from "@/components/common/async-query-boundary";
+import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { DataTable } from "@/components/ui/data-table";
+import { EmptyState, ErrorState } from "@/components/ui/enterprise";
 import { Form, FormActions, FormSection } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { AdminOnly, PermissionGate, RoleBadge } from "@/components/ui/permission";
+import { PermissionGate, RoleBadge, type UserRole } from "@/components/ui/permission";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { useUser, useUsers } from "@/hooks/queries/use-entities";
+import { useListQueryParams } from "@/hooks/use-list-query-params";
+import { getApiErrorMessage } from "@/services/api-client";
+import type { EntityRecord } from "@/services/create-crud-service";
+import { notificationPreferencesService } from "@/services/settings.service";
+import { appToast } from "@/components/ui/sonner";
+import { getBoolean, getString } from "@/utils/record-helpers";
 
-type NotificationType = "In App" | "Email" | "Push" | "SMS";
-type NotificationStatus = "DRAFT" | "SCHEDULED" | "SENT" | "ARCHIVED";
-type NotificationRecord = {
-  id: string;
-  title: string;
-  type: NotificationType;
-  audience: string;
-  status: NotificationStatus;
-  scheduledAt: string;
-  sentAt: string;
-};
-
-const notifications: NotificationRecord[] = [
-  { id: "not-001", title: "Maha Shivaratri Reminder", type: "Push", audience: "All Users", status: "SENT", scheduledAt: "01 Jul 2026, 08:00 AM", sentAt: "01 Jul 2026, 08:00 AM" },
-  { id: "not-002", title: "Temple Content Review", type: "In App", audience: "Admins", status: "SCHEDULED", scheduledAt: "04 Jul 2026, 06:00 PM", sentAt: "Pending" },
-  { id: "not-003", title: "Weekly Devotional Digest", type: "Email", audience: "Subscribers", status: "DRAFT", scheduledAt: "Not scheduled", sentAt: "Pending" },
-  { id: "not-004", title: "OTP Delivery Notice", type: "SMS", audience: "Verified Users", status: "ARCHIVED", scheduledAt: "20 Jun 2026, 09:00 AM", sentAt: "20 Jun 2026, 09:00 AM" },
+const roleOptions = [
+  { label: "All roles", value: "all" },
+  { label: "Admin", value: "ADMIN" },
+  { label: "User", value: "USER" },
 ];
 
-const typeOptions = [
-  { label: "All types", value: "all" },
-  { label: "In App", value: "in-app" },
-  { label: "Email", value: "email" },
-  { label: "Push", value: "push" },
-  { label: "SMS", value: "sms" },
-];
-
-const statusOptions = [
-  { label: "All statuses", value: "all" },
-  { label: "Draft", value: "DRAFT" },
-  { label: "Scheduled", value: "SCHEDULED" },
-  { label: "Sent", value: "SENT" },
-  { label: "Archived", value: "ARCHIVED" },
-];
-
-const audienceOptions = [
-  { label: "All audiences", value: "all" },
-  { label: "All Users", value: "all-users" },
-  { label: "Admins", value: "admins" },
-  { label: "Subscribers", value: "subscribers" },
-  { label: "Verified Users", value: "verified-users" },
-];
-
-const priorityOptions = [
-  { label: "Low", value: "low" },
-  { label: "Normal", value: "normal" },
-  { label: "High", value: "high" },
-  { label: "Urgent", value: "urgent" },
-];
-
-function NotificationTypeBadge({ type }: { type: NotificationType }) {
-  const variant = type === "Email" ? "info" : type === "Push" ? "primary" : type === "SMS" ? "warning" : "secondary";
-  return <Badge variant={variant}>{type}</Badge>;
-}
-
-function NotificationStatusBadge({ status }: { status: NotificationStatus }) {
-  const variant = status === "SENT" ? "success" : status === "SCHEDULED" ? "info" : status === "DRAFT" ? "warning" : "secondary";
-  return <Badge variant={variant}>{status}</Badge>;
-}
-
-function NotificationFilters() {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      <Select options={typeOptions} placeholder="Type" />
-      <Select options={statusOptions} placeholder="Status" />
-      <Select options={audienceOptions} placeholder="Audience" />
-      <Input aria-label="Date range filter" placeholder="Date range" type="date" />
-    </div>
-  );
-}
-
-function NotificationActions({ notification }: { notification: NotificationRecord }) {
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [resendOpen, setResendOpen] = useState(false);
+function UserRowActions({ record }: { record: EntityRecord }) {
+  const id = getString(record, "id", "");
+  const name = getString(record, "fullName");
 
   return (
-    <div className="flex flex-wrap gap-1">
-      <Button aria-label={`View ${notification.title}`} render={<Link href={`/notifications/${notification.id}`} />} size="icon-sm" variant="ghost"><Eye /></Button>
-      <AdminOnly>
-        <Button aria-label="Resend placeholder" onClick={() => setResendOpen(true)} size="icon-sm" type="button" variant="ghost"><RefreshCw /></Button>
-        <Button aria-label="Delete placeholder" onClick={() => setDeleteOpen(true)} size="icon-sm" type="button" variant="ghost"><Trash2 /></Button>
-        <ConfirmationDialog
-          action="delete"
-          message="Delete notification placeholder only. No data will be changed."
-          onConfirm={() => setDeleteOpen(false)}
-          onOpenChange={setDeleteOpen}
-          open={deleteOpen}
-          title="Delete notification"
-        />
-        <ConfirmationDialog
-          action="restore"
-          confirmLabel="Resend"
-          message="Resend notification placeholder only. No message will be sent."
-          onConfirm={() => setResendOpen(false)}
-          onOpenChange={setResendOpen}
-          open={resendOpen}
-          title="Resend notification"
-        />
-      </AdminOnly>
-    </div>
+    <Button
+      aria-label={`Manage preferences for ${name}`}
+      render={<Link href={`/admin/notifications/${id}`} />}
+      size="icon-sm"
+      variant="ghost"
+    >
+      <Eye />
+    </Button>
   );
 }
-
-const columns: ColumnDef<NotificationRecord>[] = [
-  { accessorKey: "title", header: "Title", cell: ({ row }) => <span className="font-medium">{row.original.title}</span> },
-  { accessorKey: "type", header: "Type", cell: ({ row }) => <NotificationTypeBadge type={row.original.type} /> },
-  { accessorKey: "audience", header: "Audience" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <NotificationStatusBadge status={row.original.status} /> },
-  { accessorKey: "scheduledAt", header: "Scheduled At" },
-  { accessorKey: "sentAt", header: "Sent At" },
-  { id: "actions", header: "Actions", cell: ({ row }) => <NotificationActions notification={row.original} /> },
-];
 
 export function NotificationsPageContent() {
+  const listParams = useListQueryParams();
+  const { data, isLoading, isError, error, refetch, isFetching } = useUsers(listParams.params);
+
+  const columns = useMemo<ColumnDef<EntityRecord>[]>(
+    () => [
+      {
+        accessorKey: "fullName",
+        header: "User",
+        cell: ({ row }) => <span className="font-medium">{getString(row.original, "fullName")}</span>,
+      },
+      { accessorKey: "email", header: "Email", cell: ({ row }) => getString(row.original, "email") },
+      {
+        accessorKey: "role",
+        header: "Role",
+        cell: ({ row }) => <RoleBadge role={getString(row.original, "role") as UserRole} />,
+      },
+      { accessorKey: "status", header: "Status", cell: ({ row }) => getString(row.original, "status") },
+      { id: "actions", header: "Actions", cell: ({ row }) => <UserRowActions record={row.original} /> },
+    ],
+    [],
+  );
+
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
       <div className="space-y-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Notifications Center</p>
-            <h1 className="text-3xl font-semibold tracking-tight">Notifications</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Manage notification drafts, schedules, and delivery placeholders.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <RoleBadge />
-            <AdminOnly>
-              <Button render={<Link href="/admin/notifications/send" />} leftIcon={<Send />}>Send Notification</Button>
-            </AdminOnly>
-          </div>
+        <header>
+          <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Notifications Center</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Notification Preferences</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Manage per-user notification preferences. There is no notification campaign API.
+          </p>
         </header>
+
         <DataTable
-          bulkActions={
-            <AdminOnly>
-              <Button size="sm" type="button" variant="destructive">Delete</Button>
-              <Button size="sm" type="button" variant="outline">Archive</Button>
-              <Button size="sm" type="button" variant="outline">Mark Read</Button>
-              <Button size="sm" type="button" variant="outline">Resend</Button>
-            </AdminOnly>
-          }
           columns={columns}
-          data={notifications}
-          exportPlaceholder={() => undefined}
-          filters={<NotificationFilters />}
-          onRefresh={() => undefined}
-          searchPlaceholder="Search notifications..."
+          data={data?.items ?? []}
+          emptyState={<EmptyState description="No users match your filters." title="No users found" />}
+          error={
+            isError ? (
+              <ErrorState description={error?.message ?? "Failed to load users."} onRetry={() => void refetch()} />
+            ) : undefined
+          }
+          filters={
+            <Select
+              onValueChange={(value) => listParams.setFilter("role", value === "all" ? undefined : value)}
+              options={roleOptions}
+              placeholder="Role"
+              value={(listParams.state.filters.role as string) ?? "all"}
+            />
+          }
+          loading={isLoading}
+          onRefresh={() => refetch()}
+          refreshLoading={isFetching}
+          searchPlaceholder="Search users..."
         />
+
+        <ServerPagination disabled={isFetching} meta={data?.meta} onPageChange={listParams.setPage} />
       </div>
     </PermissionGate>
   );
 }
 
-type NotificationFormValues = {
-  title: string;
-  message: string;
+export function SendNotificationPageContent() {
+  return (
+    <PermissionGate allowedRoles={["ADMIN"]}>
+      <EmptyState
+        description="Broadcast and campaign APIs are not available. Manage individual user notification preferences from the notifications list."
+        icon={<Send />}
+        primaryAction={<Button render={<Link href="/admin/notifications" />} variant="outline">Back to Notifications</Button>}
+        title="No notification campaign API"
+      />
+    </PermissionGate>
+  );
+}
+
+type PreferenceFormValues = {
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  pushEnabled: boolean;
+  whatsappEnabled: boolean;
+  festivalReminder: boolean;
+  fastingReminder: boolean;
+  templeUpdate: boolean;
+  newsletter: boolean;
 };
 
-export function SendNotificationPageContent() {
-  const form = useForm<NotificationFormValues>({ defaultValues: { title: "", message: "" } });
-
-  return (
-    <AdminOnly>
-      <div className="space-y-6">
-        <header>
-          <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Notifications Center</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Send Notification</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Compose notification placeholders only. No messages are sent.</p>
-        </header>
-        <Form {...form} onSubmit={(event) => event.preventDefault()}>
-          <FormSection columns={2} title="Notification Details" description="Message, target audience, and delivery placeholders.">
-            <Input label="Title" required {...form.register("title")} />
-            <Select options={typeOptions.slice(1)} placeholder="Type" />
-            <Textarea label="Message" required wrapperClassName="md:col-span-2" {...form.register("message")} />
-            <Select options={audienceOptions.slice(1)} placeholder="Audience" />
-            <Select options={priorityOptions} placeholder="Priority" />
-            <Input label="Schedule Date" type="date" />
-            <Input label="Schedule Time" type="time" />
-            <Select options={statusOptions.slice(1)} placeholder="Status" />
-          </FormSection>
-          <FormActions canReset dirty={form.formState.isDirty} onCancel={() => undefined} onReset={() => form.reset()} sticky submitLabel="Send placeholder" />
-        </Form>
-      </div>
-    </AdminOnly>
-  );
+function preferenceQueryKey(userId: string) {
+  return ["notification-preferences", userId] as const;
 }
 
 function DetailCard({ children, icon, title }: { children: React.ReactNode; icon: React.ReactNode; title: string }) {
@@ -214,52 +152,183 @@ function DetailCard({ children, icon, title }: { children: React.ReactNode; icon
   );
 }
 
-function TypeIcon({ type }: { type: NotificationType }) {
-  const icon = {
-    "In App": <Bell />,
-    Email: <Mail />,
-    Push: <Smartphone />,
-    SMS: <MessageSquare />,
-  }[type];
-
-  return <span className="text-primary [&_svg]:size-6">{icon}</span>;
-}
-
 export function NotificationDetailsPageContent() {
-  const notification = notifications[0];
+  const params = useParams<{ id: string }>();
+  const userId = params.id;
+  const queryClient = useQueryClient();
+  const { data: user, isLoading: userLoading, isError: userError, error: userFetchError, refetch: refetchUser } =
+    useUser(userId);
+
+  const {
+    data: preferences,
+    isLoading: prefsLoading,
+    isError: prefsError,
+    error: prefsFetchError,
+    refetch: refetchPrefs,
+  } = useQuery({
+    queryKey: preferenceQueryKey(userId),
+    queryFn: () => notificationPreferencesService.getByUserId(userId),
+    enabled: Boolean(userId),
+  });
+
+  const updatePreferences = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => notificationPreferencesService.update(userId, payload),
+    onSuccess: (record) => {
+      queryClient.setQueryData(preferenceQueryKey(userId), record);
+      appToast.success("Notification preferences saved");
+    },
+    onError: (error) => appToast.error("Save failed", getApiErrorMessage(error)),
+  });
+
+  const createPreferences = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => notificationPreferencesService.create(userId, payload),
+    onSuccess: (record) => {
+      queryClient.setQueryData(preferenceQueryKey(userId), record);
+      appToast.success("Notification preferences created");
+    },
+    onError: (error) => appToast.error("Create failed", getApiErrorMessage(error)),
+  });
+
+  const preferenceRecord = preferences ?? {};
+
+  const form = useForm<PreferenceFormValues>({
+    values: {
+      emailEnabled: getBoolean(preferenceRecord, "emailEnabled", true),
+      smsEnabled: getBoolean(preferenceRecord, "smsEnabled"),
+      pushEnabled: getBoolean(preferenceRecord, "pushEnabled", true),
+      whatsappEnabled: getBoolean(preferenceRecord, "whatsappEnabled"),
+      festivalReminder: getBoolean(preferenceRecord, "festivalReminder", true),
+      fastingReminder: getBoolean(preferenceRecord, "fastingReminder", true),
+      templeUpdate: getBoolean(preferenceRecord, "templeUpdate", true),
+      newsletter: getBoolean(preferenceRecord, "newsletter"),
+    },
+  });
+
+  async function onSubmit(values: PreferenceFormValues) {
+    const payload = { ...values };
+    if (preferences) {
+      updatePreferences.mutate(payload);
+      return;
+    }
+    createPreferences.mutate(payload);
+  }
+
+  const isLoading = userLoading || prefsLoading;
+  const isError = userError || prefsError;
+  const error = userFetchError ?? prefsFetchError;
 
   return (
     <PermissionGate allowedRoles={["ADMIN"]}>
-      <div className="space-y-6">
-        <header>
-          <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Notification Details</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{notification.title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{notification.audience} · {notification.scheduledAt}</p>
-        </header>
-        <section className="grid gap-4 lg:grid-cols-[1fr_1.2fr]" aria-label="Notification overview">
-          <Card className="glass-panel shadow-soft">
-            <CardContent className="space-y-4">
-              <TypeIcon type={notification.type} />
-              <div>
-                <h2 className="text-xl font-semibold">{notification.title}</h2>
-                <p className="text-sm text-muted-foreground">Message preview placeholder for notification details.</p>
+      <AsyncQueryBoundary
+        error={error}
+        isError={isError}
+        isLoading={isLoading}
+        loadingLabel="Loading notification preferences..."
+        onRetry={() => {
+          void refetchUser();
+          void refetchPrefs();
+        }}
+      >
+        {user ? (
+          <div className="space-y-6">
+            <header>
+              <p className="text-small font-semibold uppercase tracking-[0.22em] text-primary">Notification Preferences</p>
+              <h1 className="text-3xl font-semibold tracking-tight">{getString(user, "fullName")}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">{getString(user, "email")}</p>
+            </header>
+
+            <section className="grid gap-4 lg:grid-cols-[1fr_1.2fr]" aria-label="User notification overview">
+              <Card className="glass-panel shadow-soft">
+                <CardContent className="space-y-4">
+                  <Bell className="size-6 text-primary" />
+                  <div>
+                    <h2 className="text-xl font-semibold">{getString(user, "fullName")}</h2>
+                    <p className="text-sm text-muted-foreground">Per-user notification channel and topic preferences.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <RoleBadge role={getString(user, "role") as UserRole} />
+                    <Badge variant="secondary">{getString(user, "status")}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <DetailCard icon={<Mail />} title="Email">
+                  <p className="text-sm text-muted-foreground">{getString(user, "email")}</p>
+                </DetailCard>
+                <DetailCard icon={<Users />} title="User ID">
+                  <p className="text-sm text-muted-foreground">{getString(user, "id")}</p>
+                </DetailCard>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <NotificationTypeBadge type={notification.type} />
-                <NotificationStatusBadge status={notification.status} />
-              </div>
-            </CardContent>
-          </Card>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <DetailCard icon={<Users />} title="Recipients Placeholder"><p className="text-sm text-muted-foreground">Audience and recipient segmentation placeholder.</p></DetailCard>
-            <DetailCard icon={<Clock />} title="Delivery Placeholder"><p className="text-sm text-muted-foreground">Delivery status and timeline placeholder.</p></DetailCard>
+            </section>
+
+            <Form {...form} onSubmit={form.handleSubmit(onSubmit)}>
+              <FormSection columns={2} description="Channel delivery preferences." title="Channels">
+                <Switch
+                  checked={form.watch("emailEnabled")}
+                  description="Send email notifications."
+                  label="Email Enabled"
+                  onCheckedChange={(checked) => form.setValue("emailEnabled", checked, { shouldDirty: true })}
+                />
+                <Switch
+                  checked={form.watch("smsEnabled")}
+                  description="Send SMS notifications."
+                  label="SMS Enabled"
+                  onCheckedChange={(checked) => form.setValue("smsEnabled", checked, { shouldDirty: true })}
+                />
+                <Switch
+                  checked={form.watch("pushEnabled")}
+                  description="Send push notifications."
+                  label="Push Enabled"
+                  onCheckedChange={(checked) => form.setValue("pushEnabled", checked, { shouldDirty: true })}
+                />
+                <Switch
+                  checked={form.watch("whatsappEnabled")}
+                  description="Send WhatsApp notifications."
+                  label="WhatsApp Enabled"
+                  onCheckedChange={(checked) => form.setValue("whatsappEnabled", checked, { shouldDirty: true })}
+                />
+              </FormSection>
+
+              <FormSection columns={2} description="Topic-level notification preferences." title="Topics">
+                <Switch
+                  checked={form.watch("festivalReminder")}
+                  description="Festival reminder notifications."
+                  label="Festival Reminders"
+                  onCheckedChange={(checked) => form.setValue("festivalReminder", checked, { shouldDirty: true })}
+                />
+                <Switch
+                  checked={form.watch("fastingReminder")}
+                  description="Fasting reminder notifications."
+                  label="Fasting Reminders"
+                  onCheckedChange={(checked) => form.setValue("fastingReminder", checked, { shouldDirty: true })}
+                />
+                <Switch
+                  checked={form.watch("templeUpdate")}
+                  description="Temple update notifications."
+                  label="Temple Updates"
+                  onCheckedChange={(checked) => form.setValue("templeUpdate", checked, { shouldDirty: true })}
+                />
+                <Switch
+                  checked={form.watch("newsletter")}
+                  description="Newsletter notifications."
+                  label="Newsletter"
+                  onCheckedChange={(checked) => form.setValue("newsletter", checked, { shouldDirty: true })}
+                />
+              </FormSection>
+
+              <FormActions
+                canReset
+                dirty={form.formState.isDirty}
+                submitting={updatePreferences.isPending || createPreferences.isPending}
+                onCancel={() => form.reset()}
+                onReset={() => form.reset()}
+                sticky
+                submitLabel={preferences ? "Save Preferences" : "Create Preferences"}
+              />
+            </Form>
           </div>
-        </section>
-        <section className="grid gap-4 md:grid-cols-2" aria-label="Notification history placeholder">
-          <DetailCard icon={<History />} title="History Placeholder"><p className="text-sm text-muted-foreground">Notification activity history placeholder.</p></DetailCard>
-          <DetailCard icon={<Archive />} title="Archive Placeholder"><p className="text-sm text-muted-foreground">Archive and retention placeholder.</p></DetailCard>
-        </section>
-      </div>
+        ) : null}
+      </AsyncQueryBoundary>
     </PermissionGate>
   );
 }

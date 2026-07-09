@@ -40,9 +40,18 @@ export function UserOnly(props: RoleGateProps) {
   return <PermissionGate allowedRoles={["USER"]} {...props} />;
 }
 
-export function RoleBadge({ role }: { role?: UserRole }) {
+export function RoleBadge({ role }: { role?: UserRole | null }) {
   const currentRole = useAuthStore((state) => state.currentRole);
   const resolvedRole = role ?? currentRole;
+
+  if (!resolvedRole) {
+    return (
+      <Badge aria-label="Role unavailable" variant="secondary">
+        Unknown
+      </Badge>
+    );
+  }
+
   const config = {
     ADMIN: { label: "Admin", variant: "primary" as const },
     USER: { label: "User", variant: "secondary" as const },

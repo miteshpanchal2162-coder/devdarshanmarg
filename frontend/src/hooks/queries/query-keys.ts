@@ -1,42 +1,58 @@
+function createEntityKeys(name: string) {
+  return {
+    all: [name] as const,
+    list: (params?: unknown) => [name, "list", params] as const,
+    detail: (id: string) => [name, "detail", id] as const,
+  };
+}
+
 export const queryKeys = {
   auth: {
-    me: ["auth", "me"] as const,
+    profile: ["auth", "profile"] as const,
   },
-  users: {
-    all: ["users"] as const,
-    list: (params?: unknown) => ["users", "list", params] as const,
-    detail: (id: string) => ["users", "detail", id] as const,
+  dashboard: {
+    stats: ["dashboard", "stats"] as const,
   },
-  temples: {
-    all: ["temples"] as const,
-    list: (params?: unknown) => ["temples", "list", params] as const,
-    detail: (id: string) => ["temples", "detail", id] as const,
+  users: createEntityKeys("users"),
+  temples: createEntityKeys("temples"),
+  festivals: createEntityKeys("festivals"),
+  deities: createEntityKeys("deities"),
+  panchang: createEntityKeys("panchangs"),
+  content: createEntityKeys("content-items"),
+  media: createEntityKeys("media-library"),
+  activityLogs: createEntityKeys("activity-logs"),
+  userReviews: createEntityKeys("user-reviews"),
+  userComments: createEntityKeys("user-comments"),
+  countries: createEntityKeys("countries"),
+  states: createEntityKeys("states"),
+  cities: createEntityKeys("cities"),
+  continents: createEntityKeys("continents"),
+  areas: createEntityKeys("areas"),
+  contentCategories: createEntityKeys("content-categories"),
+  seoRedirects: createEntityKeys("seo-redirects"),
+  seoLandingPages: createEntityKeys("seo-landing-pages"),
+  supportedLanguages: createEntityKeys("supported-languages"),
+  supportedMediaTypes: createEntityKeys("supported-media-types"),
+  supportedContentStatuses: createEntityKeys("supported-content-statuses"),
+  notificationPreferences: {
+    all: ["notification-preferences"] as const,
+    detail: (userId: string) => ["notification-preferences", userId] as const,
   },
-  festivals: {
-    all: ["festivals"] as const,
-    list: (params?: unknown) => ["festivals", "list", params] as const,
-    detail: (id: string) => ["festivals", "detail", id] as const,
-  },
-  deities: {
-    all: ["deities"] as const,
-    list: (params?: unknown) => ["deities", "list", params] as const,
-    detail: (id: string) => ["deities", "detail", id] as const,
-  },
-  panchang: {
-    all: ["panchang"] as const,
-    list: (params?: unknown) => ["panchang", "list", params] as const,
-    detail: (id: string) => ["panchang", "detail", id] as const,
-  },
-  content: {
-    all: ["content"] as const,
-    list: (params?: unknown) => ["content", "list", params] as const,
-    detail: (id: string) => ["content", "detail", id] as const,
-  },
-  media: {
-    all: ["media"] as const,
-    list: (params?: unknown) => ["media", "list", params] as const,
-    detail: (id: string) => ["media", "detail", id] as const,
-  },
+  festivalRegions: (festivalId: string) => ({
+    all: ["festival-regions", festivalId] as const,
+    list: (params?: unknown) => ["festival-regions", festivalId, "list", params] as const,
+    detail: (id: string) => ["festival-regions", festivalId, "detail", id] as const,
+  }),
+  festivalDates: (festivalId: string) => ({
+    all: ["festival-dates", festivalId] as const,
+    list: (params?: unknown) => ["festival-dates", festivalId, "list", params] as const,
+    detail: (id: string) => ["festival-dates", festivalId, "detail", id] as const,
+  }),
+  festivalTempleMaps: (festivalId: string) => ({
+    all: ["festival-temple-maps", festivalId] as const,
+    list: (params?: unknown) => ["festival-temple-maps", festivalId, "list", params] as const,
+    detail: (id: string) => ["festival-temple-maps", festivalId, "detail", id] as const,
+  }),
   public: {
     temples: (params?: unknown) => ["public", "temples", params] as const,
     festivals: (params?: unknown) => ["public", "festivals", params] as const,
